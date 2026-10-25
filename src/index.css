@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Barlow Condensed", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-wasabi: #E9F056;
+  --color-cool-blue: #D7EFFF;
+  --color-orange-topaze: #FF5C34;
+  --color-teal-bg: #086672;
+  --color-teal-deep: #064D57;
+  --color-ink: #132F32;
+  --color-paper: #F7F8F4;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-teal-bg);
+    color: var(--color-paper);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+.clip-chamfer {
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+
+.clip-chamfer-lg {
+  clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 0 100%);
+}
+
+.clip-chamfer-bottom {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);
+}
