@@ -115,3 +115,72 @@ Add a 'Roast Battle' mode where users can enter two different URLs and receive a
 ### Result
 Completed
 
+---
+
+## 2026-10-25 (Data Integrity & UI Simplification)
+
+### Request
+Eliminate ALL fabricated data (trending lists, fake roast counts, fake popularity rankings, battle matchups, pre-populated history, and unverified metadata). Simplify Roastie to its core 4-step experience (Enter URL → Analyze → Reveal Roast → Free Poster Export). Reduce text aggressively using exact specified homepage copy.
+
+### Analysis
+- Removed hardcoded `trendingRoasts` array, `/api/trending`, and `/api/battle` from `server.ts`.
+- Deleted superfluous components: `TrendingRoasts.tsx`, `RoastBattleForm.tsx`, `BattleResults.tsx`, `RecentRoastsDrawer.tsx`, `historyStorage.ts`, and `sampleRoasts.ts`.
+- Replaced homepage with exact specified copy: Brand "Roastie", Headline "YOUR WEBSITE. ON TRIAL.", Supporting text "Drop a URL. Get absolutely cooked.", placeholder "yourwebsite.com", primary button "Roast this site", secondary link "How it works".
+- Streamlined `Header.tsx` to just the wordmark and quiet "How it works" link.
+- Streamlined `RoastResults.tsx` to directly highlight the actual domain, score, verdict, roast, and poster export with zero redundant strips or duplicate buttons.
+- Retained the 3 visual themes (Wasabi Lime, Orange Topaze, Cool Blue) and 1080×1350 PNG export in `RoastPoster.tsx` with a simplified theme picker.
+- Ensured failed analysis returns an honest error message and paste fallback rather than fabricated success data.
+- Maintained SSRF defenses, server-side Gemini API key handling, and optional donation settings.
+
+### Files Changed
+- /server.ts
+- /src/types/roast.ts
+- /src/components/Header.tsx
+- /src/components/Hero.tsx
+- /src/components/HowItWorks.tsx
+- /src/components/RoastResults.tsx
+- /src/components/RoastPoster.tsx
+- /src/components/Footer.tsx
+- /src/App.tsx
+- Deleted: /src/components/TrendingRoasts.tsx, /src/components/RoastBattleForm.tsx, /src/components/BattleResults.tsx, /src/components/RecentRoastsDrawer.tsx, /src/utils/historyStorage.ts, /src/data/sampleRoasts.ts
+
+### Verification
+- `compile_applet` passed successfully.
+- `lint_applet` (`tsc --noEmit`) completed with 0 errors.
+
+### Result
+Completed
+
+---
+
+## 2026-10-25 (JSON Parsing & Server Route Resilience Fix)
+
+### Request
+Fix error: `Request failed: SyntaxError: Unexpected token '<', "<html><hea"... is not valid JSON`.
+
+### Analysis
+- Occurred when an API route returned an HTML error response (from an unhandled proxy error, timeout, or SPA fallback fall-through) which the client attempted to parse via `response.json()`.
+- Client lacked `response.ok` and `content-type` verification before parsing JSON.
+- Server lacked API fallback guards to prevent `/api/*` from ever hitting the HTML SPA index handler.
+- Server needed a timeout guard on Gemini generation to prevent proxy gateway timeouts (504s).
+
+### Implementation
+- Added `response.ok` check and `Content-Type` validation in `src/App.tsx`'s `handleRoastSubmit`, with honest user-facing fallback messages and copy-paste fallback trigger.
+- Added explicit `app.all('/api/*', ...)` JSON 404 handler in `server.ts` to prevent any API route from falling through to the Vite SPA HTML handler.
+- Bound server explicitly to `0.0.0.0:${PORT}` for container compatibility.
+- Added 9-second timeout race condition guard to the Gemini API call with deterministic fallback.
+- Restarted dev server and verified with `curl` that both URL scraping and text pasting return valid JSON `200 OK`.
+
+### Files Changed
+- /server.ts
+- /src/App.tsx
+
+### Verification
+- `compile_applet` succeeded.
+- `lint_applet` (`tsc --noEmit`) passed with 0 errors.
+- `curl -X POST http://localhost:3000/api/roast` with URL and text payloads returned HTTP 200 OK with `Content-Type: application/json`.
+- `curl -X POST http://localhost:3000/api/nonexistent` returned HTTP 404 with JSON error response.
+
+### Result
+Completed
+

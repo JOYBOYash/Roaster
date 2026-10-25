@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { RoastResult, PosterTheme } from '../types/roast';
-import { Download, Check, Copy, RefreshCw, Palette } from 'lucide-react';
+import { Download, RefreshCw, Copy, Check } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 interface RoastPosterProps {
@@ -15,11 +15,11 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
   const posterRef = useRef<HTMLDivElement>(null);
 
   const handleCopyText = async () => {
-    const fullText = `ROASTIE VERDICT FOR ${roastData.domain}\nScore: ${roastData.score}/100 - ${roastData.verdict}\n\n"${roastData.roast}"\n\n⚡ ${roastData.punchline}`;
+    const fullText = `ROASTIE: ${roastData.domain}\nScore: ${roastData.score}/100 - ${roastData.verdict}\n\n"${roastData.roast}"\n\n⚡ ${roastData.punchline}`;
     try {
       await navigator.clipboard.writeText(fullText);
       setCopiedText(true);
-      setTimeout(() => setCopiedText(false), 2500);
+      setTimeout(() => setCopiedText(false), 2000);
     } catch {
       // Fallback
     }
@@ -30,15 +30,14 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
     setIsExporting(true);
 
     try {
-      // Use html-to-image to capture the poster node
       const dataUrl = await toPng(posterRef.current, {
         cacheBust: true,
         quality: 0.98,
-        pixelRatio: 2, // Crisp high-res export
+        pixelRatio: 2,
       });
 
       const sanitizedDomain = roastData.domain.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-      const filename = `roastie-${sanitizedDomain}-${roastData.reportId.toLowerCase()}.png`;
+      const filename = `roastie-${sanitizedDomain}.png`;
 
       const link = document.createElement('a');
       link.download = filename;
@@ -50,7 +49,7 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
       }
     } catch (err) {
       console.error('Error generating PNG export:', err);
-      alert('Export rendering failed. Try taking a quick screenshot or switching themes!');
+      alert('Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -69,7 +68,6 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
           verdictBg: 'bg-[#FF5C34]',
           verdictText: 'text-white',
           quoteBg: 'bg-white/80',
-          badgeBorder: 'border-[#132F32]/20',
         };
       case 'crime-scene':
         return {
@@ -81,7 +79,6 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
           verdictBg: 'bg-[#E9F056]',
           verdictText: 'text-[#132F32]',
           quoteBg: 'bg-white/90',
-          badgeBorder: 'border-[#132F32]/20',
         };
       case 'cold-verdict':
       default:
@@ -94,7 +91,6 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
           verdictBg: 'bg-[#FF5C34]',
           verdictText: 'text-white',
           quoteBg: 'bg-white',
-          badgeBorder: 'border-[#132F32]/20',
         };
     }
   };
@@ -102,55 +98,53 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
   const themeStyles = getThemeStyles();
 
   return (
-    <div className="w-full flex flex-col items-center gap-6 my-8">
-      {/* Theme Switcher */}
-      <div className="bg-[#064D57] border border-white/20 p-2.5 flex flex-wrap items-center justify-center gap-2 max-w-xl w-full clip-chamfer">
-        <span className="font-mono text-xs text-[#E9F056] uppercase mr-2 flex items-center gap-1.5 font-bold">
-          <Palette className="w-4 h-4" /> POSTER THEME:
-        </span>
+    <div className="w-full flex flex-col items-center space-y-6">
+      {/* Concise Theme Selector */}
+      <div className="flex items-center gap-2 bg-[#064D57] p-1.5 border border-white/20 clip-chamfer">
+        <span className="font-mono text-xs text-white/60 px-2 uppercase">Theme:</span>
         <button
           onClick={() => setSelectedTheme('certified-cooked')}
-          className={`px-3 py-1.5 font-mono text-xs font-bold transition-all ${
+          className={`px-3 py-1 font-mono text-xs font-bold transition-all ${
             selectedTheme === 'certified-cooked'
               ? 'bg-[#E9F056] text-[#132F32] shadow-sm'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
+              : 'text-white/70 hover:text-white'
           }`}
         >
-          Wasabi Lime
+          Wasabi
         </button>
         <button
           onClick={() => setSelectedTheme('crime-scene')}
-          className={`px-3 py-1.5 font-mono text-xs font-bold transition-all ${
+          className={`px-3 py-1 font-mono text-xs font-bold transition-all ${
             selectedTheme === 'crime-scene'
               ? 'bg-[#FF5C34] text-white shadow-sm'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
+              : 'text-white/70 hover:text-white'
           }`}
         >
-          Orange Topaze
+          Topaze
         </button>
         <button
           onClick={() => setSelectedTheme('cold-verdict')}
-          className={`px-3 py-1.5 font-mono text-xs font-bold transition-all ${
+          className={`px-3 py-1 font-mono text-xs font-bold transition-all ${
             selectedTheme === 'cold-verdict'
               ? 'bg-[#D7EFFF] text-[#132F32] shadow-sm'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
+              : 'text-white/70 hover:text-white'
           }`}
         >
           Cool Blue
         </button>
       </div>
 
-      {/* Main Poster Render Box (scaled preview for responsive screens) */}
-      <div className="w-full max-w-[540px] aspect-[1080/1350] shadow-2xl relative overflow-hidden group">
+      {/* Standalone Poster (1080x1350 aspect ratio) */}
+      <div className="w-full max-w-[480px] aspect-[1080/1350] shadow-2xl relative overflow-hidden">
         <div
           ref={posterRef}
-          className={`w-full h-full p-8 sm:p-10 flex flex-col justify-between ${themeStyles.bg} ${themeStyles.text} transition-colors duration-200 select-none relative`}
+          className={`w-full h-full p-8 sm:p-10 flex flex-col justify-between ${themeStyles.bg} ${themeStyles.text} select-none relative`}
           style={{ width: '100%', height: '100%' }}
         >
-          {/* Framed Top Header */}
+          {/* Header */}
           <div className={`border-b-2 ${themeStyles.border} pb-4 flex items-center justify-between`}>
             <div className="flex items-center gap-2">
-              <span className={`w-7 h-7 ${themeStyles.accentBg} ${themeStyles.accentText} font-display font-black text-lg flex items-center justify-center`}>
+              <span className={`w-7 h-7 ${themeStyles.accentBg} ${themeStyles.accentText} font-display font-black text-lg flex items-center justify-center rounded-sm`}>
                 R
               </span>
               <span className="font-display font-black text-2xl tracking-wider uppercase">
@@ -163,7 +157,7 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
             </div>
           </div>
 
-          {/* Target & Score Section */}
+          {/* Body */}
           <div className="my-auto space-y-5">
             <div>
               <span className="font-mono text-xs uppercase tracking-widest block opacity-70 mb-1">
@@ -174,89 +168,81 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
               </h2>
             </div>
 
-            {/* Score & Verdict Row */}
-            <div className={`p-5 ${themeStyles.quoteBg} border-2 ${themeStyles.border} shadow-md flex items-center justify-between gap-4`}>
+            {/* Score & Verdict */}
+            <div className={`p-4 ${themeStyles.quoteBg} border-2 ${themeStyles.border} shadow-sm flex items-center justify-between gap-4`}>
               <div>
                 <span className="font-mono text-[10px] uppercase tracking-widest block opacity-70">
                   ENTERTAINMENT SCORE
                 </span>
-                <span className="font-display font-black text-5xl sm:text-6xl text-[#FF5C34]">
+                <span className="font-display font-black text-5xl text-[#FF5C34]">
                   {roastData.score}
-                  <span className="font-mono text-xl text-[#132F32]/60">/100</span>
+                  <span className="font-mono text-lg text-[#132F32]/60">/100</span>
                 </span>
               </div>
               <div className="text-right">
-                <span className={`inline-block font-display font-black text-sm sm:text-base px-3 py-1.5 uppercase tracking-wide ${themeStyles.verdictBg} ${themeStyles.verdictText} border ${themeStyles.border}`}>
+                <span className={`inline-block font-display font-black text-sm px-3 py-1.5 uppercase tracking-wide ${themeStyles.verdictBg} ${themeStyles.verdictText} border ${themeStyles.border}`}>
                   {roastData.verdict}
                 </span>
               </div>
             </div>
 
-            {/* Roast Copy */}
-            <div className="space-y-3">
-              <span className="font-mono text-[11px] uppercase tracking-wider block opacity-70">
-                OFFICIAL VERDICT
-              </span>
-              <p className="font-body text-base sm:text-lg font-medium leading-relaxed">
-                "{roastData.roast}"
-              </p>
-            </div>
+            {/* Roast text */}
+            <p className="font-body text-base leading-relaxed font-medium">
+              "{roastData.roast}"
+            </p>
 
-            {/* Punchline Callout */}
-            <div className={`p-4 border-l-4 ${themeStyles.border} ${themeStyles.accentBg} ${themeStyles.accentText} font-mono text-xs sm:text-sm font-bold leading-snug`}>
+            {/* Punchline */}
+            <div className={`p-3.5 border-l-4 ${themeStyles.border} ${themeStyles.accentBg} ${themeStyles.accentText} font-mono text-xs sm:text-sm font-bold leading-snug`}>
               ⚡ {roastData.punchline}
             </div>
           </div>
 
           {/* Poster Footer */}
-          <div className={`border-t-2 ${themeStyles.border} pt-3 flex items-center justify-between font-mono text-[10px] uppercase font-bold opacity-80`}>
-            <span>VERIFIED ENTERTAINMENT ROAST</span>
-            <span>ROASTIE.APP · 100% FREE</span>
+          <div className={`border-t-2 ${themeStyles.border} pt-3 flex items-center justify-between font-mono text-[10px] uppercase font-bold opacity-75`}>
+            <span>ENTERTAINMENT SCORE</span>
+            <span>ROASTIE</span>
           </div>
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-wrap items-center justify-center gap-4 w-full max-w-xl">
+      {/* Export & Copy Controls */}
+      <div className="flex flex-wrap items-center justify-center gap-3 w-full max-w-md">
         <button
           onClick={handleDownloadPNG}
           disabled={isExporting}
-          className="flex-1 min-w-[220px] bg-[#E9F056] hover:bg-[#dce34a] text-[#132F32] font-display font-black text-xl py-3.5 px-6 uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:translate-y-0.5 disabled:opacity-60"
+          className="flex-1 bg-[#E9F056] hover:bg-[#dce34a] text-[#132F32] font-display font-black text-lg py-3.5 px-6 uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:translate-y-0.5 disabled:opacity-60"
         >
           {isExporting ? (
             <>
               <RefreshCw className="w-5 h-5 animate-spin" />
-              Rendering PNG...
+              Generating PNG...
             </>
           ) : (
             <>
               <Download className="w-5 h-5" />
-              Download Roast Card (PNG)
+              Download roast poster
             </>
           )}
         </button>
 
         <button
           onClick={handleCopyText}
-          className="bg-[#064D57] hover:bg-[#085a66] border border-white/20 text-white font-mono text-xs font-bold py-3.5 px-5 flex items-center justify-center gap-2 transition-colors"
+          className="bg-[#064D57] hover:bg-[#085a66] border border-white/20 text-white font-mono text-xs font-bold py-3.5 px-4 flex items-center justify-center gap-1.5 transition-colors"
+          title="Copy roast text"
         >
           {copiedText ? (
             <>
               <Check className="w-4 h-4 text-[#E9F056]" />
-              Copied to Clipboard!
+              Copied
             </>
           ) : (
             <>
               <Copy className="w-4 h-4" />
-              Copy Roast Text
+              Copy text
             </>
           )}
         </button>
       </div>
-
-      <p className="font-mono text-[11px] text-white/50 text-center">
-        Full 1080×1350 PNG export · No watermark · No paywall or account needed
-      </p>
     </div>
   );
 };
