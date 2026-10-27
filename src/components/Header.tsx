@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onReset}
-            className="cursor-pointer border-b border-[#E9F056]/60 pb-1 text-sm text-[#E9F056] transition-colors hover:text-white"
+            className="hidden cursor-pointer border-b border-[#E9F056]/60 pb-1 text-sm text-[#E9F056] transition-colors hover:text-white sm:inline-flex"
           >
             Roast another site
           </button>
