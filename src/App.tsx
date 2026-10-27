@@ -110,6 +110,10 @@ export default function App() {
                 errorMessage={errorMessage}
                 canPasteFallback={canPasteFallback}
                 onHowItWorksClick={handleShowHowItWorks}
+                onClearError={() => {
+                  setErrorMessage(null);
+                  setCanPasteFallback(false);
+                }}
               />
               <HowItWorks />
             </>
