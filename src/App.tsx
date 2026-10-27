@@ -40,7 +40,7 @@ export default function App() {
             : 'Service temporarily busy. Please try again or paste page text directly.';
         }
         setErrorMessage(msg);
-        setCanPasteFallback(true);
+        setCanPasteFallback(false);
         return;
       }
 
@@ -64,8 +64,8 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Request failed:', err);
-      setErrorMessage('Network connection error. Please try again or paste text directly.');
-      setCanPasteFallback(true);
+      setErrorMessage('Network connection error. Please try again.');
+      setCanPasteFallback(false);
     } finally {
       setIsLoading(false);
     }
