@@ -1,6 +1,6 @@
 {
   "name": "Roastie",
-  "description": "Drop a URL. Get a score. Get absolutely cooked with a free AI roast card export.",
+  "description": "Drop a URL. Get a short roast based on real page copy. Export a card to share.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
