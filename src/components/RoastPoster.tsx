@@ -25,15 +25,19 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
     }
   };
 
+  const [exportError, setExportError] = useState<string | null>(null);
+
   const handleDownloadPNG = async () => {
     if (!posterRef.current) return;
     setIsExporting(true);
+    setExportError(null);
 
     try {
       const dataUrl = await toPng(posterRef.current, {
         cacheBust: true,
         quality: 0.98,
         pixelRatio: 2,
+        skipFonts: true,
       });
 
       const sanitizedDomain = roastData.domain.replace(/[^a-z0-9]/gi, '-').toLowerCase();
@@ -49,7 +53,7 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
       }
     } catch (err) {
       console.error('Error generating PNG export:', err);
-      alert('Export failed. Please try again.');
+      setExportError('Unable to generate PNG in this browser. You can use "Copy text" to share the roast.');
     } finally {
       setIsExporting(false);
     }
@@ -243,6 +247,12 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
           )}
         </button>
       </div>
+
+      {exportError && (
+        <div className="w-full max-w-md bg-[#FF5C34]/20 border border-[#FF5C34] text-white p-3 font-mono text-xs text-center clip-chamfer">
+          {exportError}
+        </div>
+      )}
     </div>
   );
 };
