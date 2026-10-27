@@ -138,65 +138,6 @@ async function fetchAndExtractWebsiteContent(targetUrl: string): Promise<{ title
   }
 }
 
-// Deterministic humor score calculation (Humorous entertainment score heuristic)
-function calculateEntertainmentScore(text: string, domain: string): { score: number; verdict: string } {
-  const combined = (text + ' ' + domain).toLowerCase();
-  
-  const buzzwords = [
-    'synergy', 'empower', 'seamless', 'next-gen', 'cutting-edge', 'disrupt',
-    'revolutionize', 'all-in-one', 'ai-powered', 'transform', 'unlock',
-    'scalable', 'hyper-growth', 'paradigm', 'leverage', 'ecosystem',
-    'frictionless', 'robust', 'groundbreaking', 'mission-critical'
-  ];
-
-  let buzzCount = 0;
-  for (const bw of buzzwords) {
-    const matches = combined.split(bw).length - 1;
-    buzzCount += matches;
-  }
-
-  let hash = 0;
-  for (let i = 0; i < domain.length; i++) {
-    hash = (hash << 5) - hash + domain.charCodeAt(i);
-    hash |= 0;
-  }
-
-  const baseScore = Math.abs(hash) % 70 + 15;
-  const buzzPenalty = Math.min(buzzCount * 4, 30);
-  const finalScore = Math.max(12, Math.min(94, baseScore - buzzPenalty));
-
-  let verdict = 'AGGRESSIVELY AVERAGE';
-  if (finalScore < 25) verdict = 'CERTIFIED INTERNET CRIME';
-  else if (finalScore < 40) verdict = 'TERMINALLY UNINSPIRED';
-  else if (finalScore < 55) verdict = 'SAAS CLONE #4812';
-  else if (finalScore < 70) verdict = 'AGGRESSIVELY AVERAGE';
-  else if (finalScore < 85) verdict = 'MILDLY COOKED';
-  else verdict = 'SURPRISINGLY TOLERABLE';
-
-  return { score: finalScore, verdict };
-}
-
-// Fallback comedy generator if AI provider is temporarily unavailable
-function generateDeterministicFallbackRoast(domain: string, score: number): { roast: string; punchline: string } {
-  const fallbacks = [
-    {
-      roast: `A website that reads like it was assembled from a template catalogue of corporate promises. You promised the world in the hero banner and delivered vague buzzwords in the body copy.`,
-      punchline: `If empty buzzwords were currency, you'd be a billionaire.`
-    },
-    {
-      roast: `This site works overtime to sound like an enterprise giant while carefully avoiding any clear explanation of what it actually builds or offers. Every line is a study in saying nothing with maximum confidence.`,
-      punchline: `Built for investors who skim headers and visitors who bounce in three seconds.`
-    },
-    {
-      roast: `A textbook specimen of modern landing page tropes: floating pastel geometry, zero clarity, and copy promising to "revolutionize" what was already working fine without it.`,
-      punchline: `More gradient effects than actual utility.`
-    }
-  ];
-
-  const index = Math.abs(domain.length + score) % fallbacks.length;
-  return fallbacks[index];
-}
-
 // Core API endpoint for website roasting
 app.post('/api/roast', async (req: Request, res: Response) => {
   try {
@@ -207,7 +148,7 @@ app.post('/api/roast', async (req: Request, res: Response) => {
       return;
     }
 
-    let domain = 'pasted-content.com';
+    let domain = 'Pasted website copy';
     let extractedText = '';
     let inputMethod: 'url' | 'pasted' = 'pasted';
 
@@ -237,95 +178,108 @@ app.post('/api/roast', async (req: Request, res: Response) => {
       domain = 'pasted-text';
     }
 
-    // Entertainment Score
-    const { score, verdict } = calculateEntertainmentScore(extractedText, domain);
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+      console.error('GEMINI_API_KEY is not configured.');
+      res.status(503).json({
+        success: false,
+        error: 'Roastie AI is not configured right now. No roast was generated.'
+      });
+      return;
+    }
 
-    // Server-Side Gemini API Call with timeout guard
+    let headlineText = '';
     let roastText = '';
-    let punchlineText = '';
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      try {
-        const ai = new GoogleGenAI({
-          apiKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build'
-            }
-          }
-        });
-
-        const prompt = `Analyze this public website copy for "${domain}". Write a witty, humorous, savage 30-60 word comedy roast about its copy, buzzwords, or marketing promises. Do NOT give advice, SEO tips, fix lists, or recommendations. Provide 1 punchy single-sentence summary punchline.
-        
-Website Copy:
-${extractedText}`;
-
-        const geminiPromise = ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: prompt,
-          config: {
-            systemInstruction: `You are Roastie, a comedy writer who roasts public websites for entertainment. Be witty and sharp about marketing jargon and copy fluff. Never give advice, recommendations, or SEO tips. Output valid JSON with fields "roast" and "punchline".`,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                roast: {
-                  type: Type.STRING,
-                  description: 'A 30-60 word witty comedy roast paragraph.'
-                },
-                punchline: {
-                  type: Type.STRING,
-                  description: 'A short 1-sentence punchline.'
-                }
-              },
-              required: ['roast', 'punchline']
-            }
-          }
-        });
-
-        // 9-second timeout to prevent proxy 504 errors
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('AI generation timed out')), 9000)
-        );
-
-        const response: any = await Promise.race([geminiPromise, timeoutPromise]);
-
-        if (response && response.text) {
-          const parsed = JSON.parse(response.text.trim());
-          if (parsed.roast && parsed.punchline) {
-            roastText = parsed.roast;
-            punchlineText = parsed.punchline;
+    try {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
           }
         }
-      } catch (aiErr) {
-        console.warn('Gemini API call error; using fallback roast:', aiErr);
+      });
+
+      const sourceLabel = inputMethod === 'url' ? domain : 'the pasted website copy';
+      const prompt = `Write one specific, funny website roast based only on the source text below for ${sourceLabel}.
+
+Return:
+- headline: 3 to 7 words, a sharp hook that does not repeat the roast.
+- roast: one punchy paragraph of 18 to 30 words.
+
+Rules:
+- Use only details and phrases present in the supplied text.
+- Never invent features, pricing, customers, metrics, visual design, bugs, performance, SEO results, or claims about the site.
+- Do not imply the site was tested. This is a roast of the supplied copy only.
+- If there is too little detail for a specific joke, say so briefly and make the joke about the copy being too vague.
+- No scores, rankings, verdict labels, advice, recommendations, or second summary.
+- Avoid filler, repeated points, all-caps writing, and corporate catchphrases.
+
+Source text:
+${extractedText}`;
+
+      const geminiPromise = ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          systemInstruction: 'You write concise comedy about website copy. Be pointed and funny, but never claim facts that are absent from the supplied text. Return valid JSON with exactly the fields headline and roast.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              headline: {
+                type: Type.STRING,
+                description: 'A short, specific 3-7 word headline, not a restatement of the roast.'
+              },
+              roast: {
+                type: Type.STRING,
+                description: 'One original, punchy 18-30 word roast based only on the supplied text.'
+              }
+            },
+            required: ['headline', 'roast']
+          }
+        }
+      });
+
+      // If generation times out or fails, return an error instead of a fabricated result.
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('AI generation timed out')), 9000)
+      );
+
+      const response: any = await Promise.race([geminiPromise, timeoutPromise]);
+      if (!response?.text) {
+        throw new Error('AI returned an empty response');
       }
-    }
 
-    // Fallback if AI call failed
-    if (!roastText || !punchlineText) {
-      const fallback = generateDeterministicFallbackRoast(domain, score);
-      roastText = fallback.roast;
-      punchlineText = fallback.punchline;
-    }
+      const parsed = JSON.parse(response.text.trim());
+      if (
+        typeof parsed.headline !== 'string' ||
+        typeof parsed.roast !== 'string' ||
+        !parsed.headline.trim() ||
+        !parsed.roast.trim()
+      ) {
+        throw new Error('AI returned an incomplete roast');
+      }
 
-    // Generate report metadata only for this real, completed analysis
-    const reportId = 'RST-' + Math.floor(1000 + Math.random() * 9000);
-    const createdAt = new Date().toISOString().split('T')[0];
+      headlineText = parsed.headline.trim().replace(/\s+/g, ' ').slice(0, 80);
+      roastText = parsed.roast.trim().replace(/\s+/g, ' ').slice(0, 320);
+    } catch (aiErr) {
+      console.error('Gemini roast generation failed:', aiErr);
+      res.status(503).json({
+        success: false,
+        error: 'Roast generation failed. No roast was created. Please try again.'
+      });
+      return;
+    }
 
     res.json({
       success: true,
       data: {
         domain,
-        score,
-        verdict,
+        headline: headlineText,
         roast: roastText,
-        punchline: punchlineText,
-        reportId,
-        createdAt,
-        inputMethod,
-        pastedTextSnippet: inputMethod === 'pasted' ? extractedText.slice(0, 100) + '...' : undefined
+        inputMethod
       }
     });
   } catch (err: any) {
