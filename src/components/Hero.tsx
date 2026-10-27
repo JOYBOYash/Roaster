@@ -42,9 +42,10 @@ export const Hero: React.FC<HeroProps> = ({
       return;
     }
 
-    const cleanedUrl = /^https?:\/\//i.test(urlInput.trim())
-      ? urlInput.trim()
-      : `https://${urlInput.trim()}`;
+    const trimmedUrl = urlInput.trim();
+    const cleanedUrl = /^https?:\/\//i.test(trimmedUrl)
+      ? trimmedUrl.replace(/^https?:\/\//i, (protocol) => protocol.toLowerCase())
+      : `https://${trimmedUrl}`;
     await onRoastSubmit({ url: cleanedUrl });
   };
 
