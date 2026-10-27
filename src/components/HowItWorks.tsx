@@ -1,43 +1,37 @@
 import React from 'react';
 
-export const HowItWorks: React.FC = () => {
-  const steps = [
-    {
-      num: '01',
-      title: 'Submit URL',
-      desc: 'Enter any public website URL or paste public-facing page copy.',
-    },
-    {
-      num: '02',
-      title: 'Analyze & Roast',
-      desc: 'We inspect visible copy and generate a humorous entertainment score and witty roast.',
-    },
-    {
-      num: '03',
-      title: 'Free Poster Export',
-      desc: 'Download a clean 1080×1350 PNG roast card in your choice of three visual themes.',
-    },
-  ];
+const steps = [
+  {
+    num: '01',
+    title: 'Drop a URL',
+    desc: 'Enter a public website or paste its page copy.',
+  },
+  {
+    num: '02',
+    title: 'Get roasted',
+    desc: 'Roastie writes a joke based on the supplied text.',
+  },
+  {
+    num: '03',
+    title: 'Share the card',
+    desc: 'Download a simple image or copy the roast.',
+  },
+];
 
+export const HowItWorks: React.FC = () => {
   return (
-    <section id="how-it-works" className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-12 border-t border-white/10">
-      <h2 className="font-display font-black text-2xl uppercase tracking-wider text-white mb-6">
-        How Roastie works
+    <section id="how-it-works" className="mx-auto w-full max-w-4xl border-t border-white/15 px-4 py-12 sm:px-6 sm:py-16">
+      <h2 className="mb-8 text-2xl font-bold tracking-tight text-white">
+        How it works
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {steps.map((s) => (
-          <div key={s.num} className="bg-[#064D57] border border-white/15 p-5 clip-chamfer space-y-2">
-            <span className="font-mono text-xs text-[#E9F056] font-bold block">
-              {s.num}
-            </span>
-            <h3 className="font-display font-bold text-xl uppercase text-white">
-              {s.title}
-            </h3>
-            <p className="font-body text-xs text-white/80 leading-relaxed">
-              {s.desc}
-            </p>
-          </div>
+      <div className="grid grid-cols-1 gap-x-8 gap-y-8 md:grid-cols-3">
+        {steps.map((step) => (
+          <article key={step.num} className="border-t-2 border-[#E9F056]/70 pt-4">
+            <p className="mb-3 text-sm text-white/60">{step.num}</p>
+            <h3 className="mb-2 text-lg font-semibold text-white">{step.title}</h3>
+            <p className="text-sm leading-relaxed text-white/75">{step.desc}</p>
+          </article>
         ))}
       </div>
     </section>
