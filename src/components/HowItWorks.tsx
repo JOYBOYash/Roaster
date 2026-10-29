@@ -4,7 +4,7 @@ const steps = [
   {
     num: '01',
     title: 'Drop a URL',
-    desc: 'Enter a public website or paste its page copy.',
+    desc: 'Enter a public website URL, paste page copy, or list your tracks.',
   },
   {
     num: '02',
