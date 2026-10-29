@@ -13,13 +13,15 @@ export interface RoastHistoryEntry {
 function isHistoryEntry(value: unknown): value is RoastHistoryEntry {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<RoastHistoryEntry>;
+  const result = candidate.result as RoastResult | undefined;
+
   return typeof candidate.id === 'string'
     && typeof candidate.savedAt === 'string'
     && typeof candidate.styleId === 'string'
-    && Boolean(candidate.result && typeof candidate.result === 'object')
-    && typeof candidate.result.domain === 'string'
-    && typeof candidate.result.headline === 'string'
-    && typeof candidate.result.roast === 'string';
+    && Boolean(result && typeof result === 'object')
+    && typeof result?.domain === 'string'
+    && typeof result?.headline === 'string'
+    && typeof result?.roast === 'string';
 }
 
 export function readRoastHistory(): RoastHistoryEntry[] {
