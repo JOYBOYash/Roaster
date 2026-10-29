@@ -138,21 +138,54 @@ async function fetchAndExtractWebsiteContent(targetUrl: string): Promise<{ title
   }
 }
 
+// Lightweight diagnostic endpoint for hosted and AI Studio deployments.
+// Never return secrets or exception details from this route.
+app.get('/api/health', (_req: Request, res: Response) => {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const aiConfigured = Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY');
+
+  res.status(200).json({
+    ok: true,
+    service: 'roastie-api',
+    aiConfigured,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Core API endpoint for website roasting
 app.post('/api/roast', async (req: Request, res: Response) => {
   try {
-    const { url, pastedText } = req.body;
+    const { url, pastedText, mode, musicText } = req.body;
+    const isMusicMode = mode === 'music';
 
-    if (!url && (!pastedText || typeof pastedText !== 'string' || !pastedText.trim())) {
+    if (isMusicMode) {
+      if (typeof musicText !== 'string' || !musicText.trim()) {
+        res.status(400).json({ success: false, error: 'Paste at least three tracks or artists, one per line.' });
+        return;
+      }
+
+      const musicItems = musicText.split(/\r?\n/).map((item: string) => item.trim()).filter(Boolean);
+      if (musicItems.length < 3) {
+        res.status(400).json({ success: false, error: 'Add at least three tracks or artists, one per line.' });
+        return;
+      }
+      if (musicItems.length > 20) {
+        res.status(400).json({ success: false, error: 'Keep it to 20 tracks or artists per roast.' });
+        return;
+      }
+    } else if (!url && (!pastedText || typeof pastedText !== 'string' || !pastedText.trim())) {
       res.status(400).json({ success: false, error: 'Please enter a website URL or paste page copy.' });
       return;
     }
 
-    let domain = 'Pasted website copy';
+    let domain = isMusicMode ? 'Your music taste' : 'Pasted website copy';
     let extractedText = '';
-    let inputMethod: 'url' | 'pasted' = 'pasted';
+    let inputMethod: 'url' | 'pasted' | 'music' = isMusicMode ? 'music' : 'pasted';
 
-    if (url && typeof url === 'string' && url.trim()) {
+    if (isMusicMode) {
+      const musicItems = (musicText as string).split(/\r?\n/).map((item: string) => item.trim()).filter(Boolean);
+      extractedText = musicItems.join('\n').slice(0, 5000);
+    } else if (url && typeof url === 'string' && url.trim()) {
       inputMethod = 'url';
       let rawUrl = url.trim();
       if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
@@ -201,8 +234,24 @@ app.post('/api/roast', async (req: Request, res: Response) => {
         }
       });
 
-      const sourceLabel = inputMethod === 'url' ? domain : 'the pasted website copy';
-      const prompt = `Write one specific, funny website roast based only on the source text below for ${sourceLabel}.
+      const sourceLabel = inputMethod === 'url' ? domain : inputMethod === 'music' ? 'the submitted music list' : 'the pasted website copy';
+      const prompt = inputMethod === 'music'
+        ? `Roast the person's music taste using only the artist and track names in this list.
+
+Write:
+- headline: 3 to 7 words, a sharp hook.
+- roast: one punchy paragraph of 18 to 30 words.
+
+Rules:
+- Joke about the specific mix of artists and songs that are actually listed.
+- Do not invent tracks, artists, listening history, genres, personality traits, age, identity, or life events.
+- If the list is too vague to infer a music pattern, joke about the list itself.
+- No scores, rankings, verdict labels, advice, or second summary.
+- Avoid filler, repeated points, all-caps writing, and corporate catchphrases.
+
+Submitted music list:
+${extractedText}`
+        : `Write one specific, funny website roast based only on the source text below for ${sourceLabel}.
 
 Return:
 - headline: 3 to 7 words, a sharp hook that does not repeat the roast.
@@ -223,7 +272,7 @@ ${extractedText}`;
         model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
-          systemInstruction: 'You write concise comedy about website copy. Be pointed and funny, but never claim facts that are absent from the supplied text. Return valid JSON with exactly the fields headline and roast.',
+          systemInstruction: inputMethod === 'music' ? 'You write concise, specific comedy about a user-submitted music list. Never invent songs or infer sensitive personal traits. Return valid JSON with exactly the fields headline and roast.' : 'You write concise comedy about website copy. Be pointed and funny, but never claim facts that are absent from the supplied text. Return valid JSON with exactly the fields headline and roast.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,

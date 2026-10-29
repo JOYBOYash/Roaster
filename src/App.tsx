@@ -7,6 +7,46 @@ import { DonationSupport } from './components/DonationSupport';
 import { Footer } from './components/Footer';
 import { RoastResult, RoastResponse } from './types/roast';
 
+type ApiHealth = {
+  ok?: boolean;
+  service?: string;
+  aiConfigured?: boolean;
+};
+
+async function diagnoseApiFailure(status: number | null, route: string): Promise<string> {
+  const statusSuffix = status === null ? '' : ` (HTTP ${status})`;
+
+  if (status === 504) {
+    return 'The request timed out before Roastie finished. No roast was generated. Check /api/health and the server logs.';
+  }
+
+  try {
+    const healthResponse = await fetch('/api/health', { cache: 'no-store' });
+    const contentType = healthResponse.headers.get('content-type') || '';
+
+    if (!healthResponse.ok || !contentType.includes('application/json')) {
+      return `Could not confirm that the Roastie API is running${statusSuffix}. Open /api/health on this site and check the deployment logs.`;
+    }
+
+    const health: ApiHealth = await healthResponse.json();
+    if (!health.ok) {
+      return `The Roastie API health check failed${statusSuffix}. Check the server logs.`;
+    }
+
+    if (health.aiConfigured === false) {
+      return 'The Roastie server is running, but Gemini is not configured. Set GEMINI_API_KEY in the hosting platform’s server secrets.';
+    }
+
+    if (status === null) {
+      return `The API health check passed, but the ${route} request could not complete. Check the host’s proxy and server logs.`;
+    }
+
+    return `The Roastie API is reachable, but ${route} returned a non-JSON response${statusSuffix}. Check API routing and server logs.`;
+  } catch {
+    return `Could not reach the Roastie API${statusSuffix}. Check /api/health and confirm the Express server is running on the host.`;
+  }
+}
+
 export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [roastData, setRoastData] = useState<RoastResult | null>(null);
@@ -14,7 +54,7 @@ export default function App() {
   const [canPasteFallback, setCanPasteFallback] = useState(false);
   const [hasExported, setHasExported] = useState(false);
 
-  const handleRoastSubmit = async (input: { url?: string; pastedText?: string }) => {
+  const handleRoastSubmit = async (input: { url?: string; pastedText?: string; musicText?: string; mode?: 'website' | 'music' }) => {
     setIsLoading(true);
     setErrorMessage(null);
     setCanPasteFallback(false);
@@ -28,26 +68,32 @@ export default function App() {
         body: JSON.stringify(input),
       });
 
+      const contentType = response.headers.get('content-type') || '';
+
       if (!response.ok) {
-        let msg = 'Failed to analyze website. Please try again or paste page text directly.';
-        try {
-          const errData = await response.json();
-          if (errData && errData.error) msg = errData.error;
-        } catch {
-          // If non-JSON returned (e.g. gateway timeout or proxy error)
-          msg = response.status === 504
-            ? 'The target website took too long to respond. Try pasting its text directly.'
-            : 'Service temporarily busy. Please try again or paste page text directly.';
+        let msg: string;
+
+        if (contentType.includes('application/json')) {
+          try {
+            const errData = await response.json();
+            msg = typeof errData?.error === 'string'
+              ? errData.error
+              : await diagnoseApiFailure(response.status, '/api/roast');
+          } catch {
+            msg = await diagnoseApiFailure(response.status, '/api/roast');
+          }
+        } else {
+          msg = await diagnoseApiFailure(response.status, '/api/roast');
         }
+
         setErrorMessage(msg);
         setCanPasteFallback(false);
         return;
       }
 
-      const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        setErrorMessage('Received unexpected response. Please try pasting page text directly.');
-        setCanPasteFallback(true);
+        setErrorMessage(await diagnoseApiFailure(response.status, '/api/roast'));
+        setCanPasteFallback(false);
         return;
       }
 
@@ -64,7 +110,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Request failed:', err);
-      setErrorMessage('Network connection error. Please try again.');
+      setErrorMessage(await diagnoseApiFailure(null, '/api/roast'));
       setCanPasteFallback(false);
     } finally {
       setIsLoading(false);

@@ -118,7 +118,7 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
         >
           <header className={`flex items-center justify-between gap-4 border-b pb-4 ${theme.border}`}>
             <span className="text-lg font-bold tracking-tight">roastie</span>
-            <span className="text-sm opacity-70">website roast</span>
+            <span className="text-sm opacity-70">{roastData.inputMethod === 'music' ? 'music taste roast' : 'website roast'}</span>
           </header>
 
           <main className="my-auto py-8 sm:py-10">

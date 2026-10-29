@@ -2,7 +2,7 @@ export interface RoastResult {
   domain: string;
   headline: string;
   roast: string;
-  inputMethod: 'url' | 'pasted';
+  inputMethod: 'url' | 'pasted' | 'music';
 }
 
 export type PosterTheme = 'certified-cooked' | 'crime-scene' | 'cold-verdict';

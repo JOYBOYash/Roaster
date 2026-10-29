@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowRight, RefreshCw, AlertCircle, FileText, Flame, Globe } from 'lucide-react';
+import { ArrowRight, RefreshCw, AlertCircle, FileText, Flame, Globe, Music2 } from 'lucide-react';
 
 interface HeroProps {
-  onRoastSubmit: (input: { url?: string; pastedText?: string }) => Promise<void>;
+  onRoastSubmit: (input: { url?: string; pastedText?: string; musicText?: string; mode?: 'website' | 'music' }) => Promise<void>;
   isLoading: boolean;
   errorMessage: string | null;
   canPasteFallback: boolean;
@@ -18,7 +18,9 @@ export const Hero: React.FC<HeroProps> = ({
   onHowItWorksClick,
   onClearError,
 }) => {
+  const [roastMode, setRoastMode] = useState<'website' | 'music'>('website');
   const [urlInput, setUrlInput] = useState('');
+  const [musicText, setMusicText] = useState('');
   const [pastedText, setPastedText] = useState('');
   const [usePastedMode, setUsePastedMode] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -27,6 +29,20 @@ export const Hero: React.FC<HeroProps> = ({
     e.preventDefault();
     setValidationError(null);
     onClearError();
+
+    if (roastMode === 'music') {
+      const tracks = musicText.split(/\r?\n/).map((track) => track.trim()).filter(Boolean);
+      if (tracks.length < 3) {
+        setValidationError('Add at least three tracks or artists, one per line.');
+        return;
+      }
+      if (tracks.length > 20) {
+        setValidationError('Keep it to 20 tracks or artists per roast.');
+        return;
+      }
+      await onRoastSubmit({ mode: 'music', musicText: tracks.join('\n') });
+      return;
+    }
 
     if (usePastedMode) {
       if (!pastedText.trim()) {
@@ -46,7 +62,26 @@ export const Hero: React.FC<HeroProps> = ({
     const cleanedUrl = /^https?:\/\//i.test(trimmedUrl)
       ? trimmedUrl.replace(/^https?:\/\//i, (protocol) => protocol.toLowerCase())
       : `https://${trimmedUrl}`;
+
+    const parsedUrl = new URL(cleanedUrl);
+    const isPrivateChatLink =
+      (parsedUrl.hostname === 'chatgpt.com' || parsedUrl.hostname === 'chat.openai.com') &&
+      parsedUrl.pathname.startsWith('/c/');
+
+    if (isPrivateChatLink) {
+      setValidationError('ChatGPT conversation links are private. Paste the page copy below.');
+      setUsePastedMode(true);
+      return;
+    }
+
     await onRoastSubmit({ url: cleanedUrl });
+  };
+
+  const switchRoastMode = (mode: 'website' | 'music') => {
+    setRoastMode(mode);
+    setUsePastedMode(false);
+    setValidationError(null);
+    onClearError();
   };
 
   const switchInputMode = () => {
@@ -59,18 +94,33 @@ export const Hero: React.FC<HeroProps> = ({
     <section className="mx-auto w-full max-w-4xl px-4 pb-16 pt-12 text-center sm:px-6 sm:pt-16">
       <div className="mb-9 space-y-3">
         <h1 className="font-display text-5xl font-bold leading-[0.98] tracking-tight text-white sm:text-6xl lg:text-7xl">
-          Your website.
+          {roastMode === 'music' ? 'Your playlist.' : 'Your website.'}
           <br />
           <span className="text-[#E9F056]">On trial.</span>
         </h1>
         <p className="font-body text-lg text-white/85 sm:text-xl">
-          Drop a URL. Get absolutely cooked.
+          {roastMode === 'music' ? 'Paste your tracks. Get absolutely cooked.' : 'Drop a URL. Get absolutely cooked.'}
         </p>
       </div>
 
       <div className="mx-auto w-full max-w-xl border border-white/20 bg-[#064D57] p-5 text-left sm:p-6">
+        <div className="mb-4 flex items-center gap-5 border-b border-white/15 pb-3" role="group" aria-label="Roast mode">
+          <button type="button" aria-pressed={roastMode === 'website'} onClick={() => switchRoastMode('website')} className={'cursor-pointer border-b-2 pb-2 text-sm font-semibold transition-colors ' + (roastMode === 'website' ? 'border-[#E9F056] text-white' : 'border-transparent text-white/60 hover:text-white')}>
+            Website roast
+          </button>
+          <button type="button" aria-pressed={roastMode === 'music'} onClick={() => switchRoastMode('music')} className={'inline-flex cursor-pointer items-center gap-1.5 border-b-2 pb-2 text-sm font-semibold transition-colors ' + (roastMode === 'music' ? 'border-[#E9F056] text-white' : 'border-transparent text-white/60 hover:text-white')}>
+            <Music2 className="h-4 w-4" aria-hidden="true" />
+            Music taste
+          </button>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!usePastedMode ? (
+          {roastMode === 'music' ? (
+            <div className="w-full">
+              <label htmlFor="music-track-list" className="sr-only">Tracks and artists</label>
+              <textarea id="music-track-list" value={musicText} onChange={(e) => { setMusicText(e.target.value); setValidationError(null); onClearError(); }} placeholder="Paste 3-20 tracks or artists, one per line" disabled={isLoading} rows={5} className="w-full resize-y border border-[#FF5C34]/75 bg-[#103E43] p-4 font-body text-base text-white placeholder-white/50 transition-colors hover:border-[#FF8A70] focus:border-[#E9F056] focus:outline-none focus:ring-2 focus:ring-[#E9F056]/20 disabled:cursor-not-allowed disabled:opacity-60" />
+              <p className="mt-2 text-sm text-white/65">No Spotify login. Roast only uses the list you paste.</p>
+            </div>
+          ) : !usePastedMode ? (
             <div className="group mx-auto w-full max-w-[400px] sm:mx-0">
               <label htmlFor="target-website-url" className="sr-only">
                 Website URL
@@ -123,7 +173,7 @@ export const Hero: React.FC<HeroProps> = ({
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF8A70]" aria-hidden="true" />
               <div className="space-y-2">
                 <p>{validationError || errorMessage}</p>
-                {canPasteFallback && !usePastedMode && (
+                {canPasteFallback && roastMode === 'website' && !usePastedMode && (
                   <button
                     type="button"
                     onClick={() => {
@@ -148,15 +198,16 @@ export const Hero: React.FC<HeroProps> = ({
             {isLoading ? (
               <>
                 <RefreshCw className="h-[18px] w-[18px] animate-spin" aria-hidden="true" />
-                Roasting...
+                {roastMode === 'music' ? 'Roasting taste...' : 'Roasting...'}
               </>
             ) : (
               <>
-                <Flame
-                  className="h-[19px] w-[19px] fill-current transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-110"
-                  aria-hidden="true"
-                />
-                <span>Roast this site</span>
+                {roastMode === 'music' ? (
+                  <Music2 className="h-[19px] w-[19px]" aria-hidden="true" />
+                ) : (
+                  <Flame className="h-[19px] w-[19px] fill-current transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-110" aria-hidden="true" />
+                )}
+                <span>{roastMode === 'music' ? 'Roast my taste' : 'Roast this site'}</span>
                 <ArrowRight className="h-[18px] w-[18px] transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
               </>
             )}
@@ -164,14 +215,14 @@ export const Hero: React.FC<HeroProps> = ({
         </form>
 
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-white/15 pt-4 text-sm text-white/75">
-          <button
+          {roastMode === 'website' && <button
             type="button"
             onClick={switchInputMode}
             className="inline-flex cursor-pointer items-center gap-2 transition-colors hover:text-[#E9F056]"
           >
             <FileText className="h-4 w-4" aria-hidden="true" />
             {usePastedMode ? 'Use a URL instead' : 'Paste page copy'}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={onHowItWorksClick}
