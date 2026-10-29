@@ -7,6 +7,7 @@ interface HeroProps {
   errorMessage: string | null;
   canPasteFallback: boolean;
   onHowItWorksClick: () => void;
+  onClearError: () => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
@@ -15,6 +16,7 @@ export const Hero: React.FC<HeroProps> = ({
   errorMessage,
   canPasteFallback,
   onHowItWorksClick,
+  onClearError,
 }) => {
   const [urlInput, setUrlInput] = useState('');
   const [pastedText, setPastedText] = useState('');
@@ -24,79 +26,96 @@ export const Hero: React.FC<HeroProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
+    onClearError();
 
     if (usePastedMode) {
       if (!pastedText.trim()) {
-        setValidationError('Please enter or paste the website copy.');
+        setValidationError('Paste the website copy first.');
         return;
       }
       await onRoastSubmit({ pastedText: pastedText.trim() });
-    } else {
-      if (!urlInput.trim()) {
-        setValidationError('Please enter a website URL.');
-        return;
-      }
-      let cleanedUrl = urlInput.trim();
-      if (!cleanedUrl.startsWith('http://') && !cleanedUrl.startsWith('https://')) {
-        cleanedUrl = 'https://' + cleanedUrl;
-      }
-      await onRoastSubmit({ url: cleanedUrl });
+      return;
     }
+
+    if (!urlInput.trim()) {
+      setValidationError('Enter a website URL first.');
+      return;
+    }
+
+    const trimmedUrl = urlInput.trim();
+    const cleanedUrl = /^https?:\/\//i.test(trimmedUrl)
+      ? trimmedUrl.replace(/^https?:\/\//i, (protocol) => protocol.toLowerCase())
+      : `https://${trimmedUrl}`;
+    await onRoastSubmit({ url: cleanedUrl });
+  };
+
+  const switchInputMode = () => {
+    setUsePastedMode((current) => !current);
+    setValidationError(null);
+    onClearError();
   };
 
   return (
-    <section className="w-full max-w-4xl mx-auto px-4 sm:px-6 pt-12 pb-16 text-center">
-      {/* Primary Headline & Supporting Copy */}
-      <div className="space-y-4 mb-10">
-        <h1 className="font-display font-black text-6xl sm:text-7xl lg:text-8xl tracking-tight leading-[0.9] uppercase text-white">
-          YOUR WEBSITE.<br />
-          <span className="text-[#E9F056]">ON TRIAL.</span>
+    <section className="mx-auto w-full max-w-4xl px-4 pb-16 pt-12 text-center sm:px-6 sm:pt-16">
+      <div className="mb-9 space-y-3">
+        <h1 className="font-display text-5xl font-bold leading-[0.98] tracking-tight text-white sm:text-6xl lg:text-7xl">
+          Your website.
+          <br />
+          <span className="text-[#E9F056]">On trial.</span>
         </h1>
-        <p className="font-body text-xl sm:text-2xl text-white/90 font-normal">
+        <p className="font-body text-lg text-white/85 sm:text-xl">
           Drop a URL. Get absolutely cooked.
         </p>
       </div>
 
-      {/* Primary URL Form Container */}
-      <div className="w-full max-w-xl mx-auto bg-[#064D57] border border-white/20 p-6 sm:p-8 clip-chamfer-lg shadow-2xl text-left">
+      <div className="mx-auto w-full max-w-xl border border-white/20 bg-[#064D57] p-5 text-left sm:p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           {!usePastedMode ? (
-            <div>
+            <div className="mx-auto w-full max-w-[400px] sm:mx-0">
               <label htmlFor="target-website-url" className="sr-only">
                 Website URL
               </label>
               <input
                 id="target-website-url"
                 type="text"
+                inputMode="url"
+                autoComplete="url"
                 value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
+                onChange={(e) => {
+                  setUrlInput(e.target.value);
+                  setValidationError(null);
+                  onClearError();
+                }}
                 placeholder="yourwebsite.com"
                 disabled={isLoading}
-                className="w-full bg-[#132F32] border border-white/20 text-white placeholder-white/40 px-4 py-3.5 font-mono text-base focus:outline-none focus:border-[#E9F056] focus:ring-1 focus:ring-[#E9F056] transition-all"
+                className="w-full border border-white/25 bg-[#132F32] px-4 py-3.5 font-body text-base text-white placeholder-white/50 transition-colors focus:border-[#E9F056] focus:outline-none focus:ring-1 focus:ring-[#E9F056] disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           ) : (
-            <div>
+            <div className="w-full">
               <label htmlFor="target-website-copy" className="sr-only">
-                Website Copy
+                Website copy
               </label>
               <textarea
                 id="target-website-copy"
                 value={pastedText}
-                onChange={(e) => setPastedText(e.target.value)}
-                placeholder="Paste the public copy or headlines from the website here..."
+                onChange={(e) => {
+                  setPastedText(e.target.value);
+                  setValidationError(null);
+                  onClearError();
+                }}
+                placeholder="Paste the page copy or headlines here"
                 disabled={isLoading}
                 rows={4}
-                className="w-full bg-[#132F32] border border-white/20 text-white placeholder-white/40 p-3.5 font-mono text-xs focus:outline-none focus:border-[#E9F056] focus:ring-1 focus:ring-[#E9F056] transition-all resize-none"
+                className="w-full resize-y border border-white/25 bg-[#132F32] p-3.5 font-body text-base text-white placeholder-white/50 transition-colors focus:border-[#E9F056] focus:outline-none focus:ring-1 focus:ring-[#E9F056] disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           )}
 
-          {/* Validation & Error Messaging */}
           {(validationError || errorMessage) && (
-            <div className="bg-[#FF5C34]/20 border border-[#FF5C34] text-white p-3 text-xs font-mono flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-[#FF5C34] shrink-0 mt-0.5" />
-              <div className="space-y-1">
+            <div role="alert" className="flex items-start gap-2 border-l-2 border-[#FF5C34] bg-[#132F32] px-3 py-3 text-sm text-white">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF8A70]" aria-hidden="true" />
+              <div className="space-y-2">
                 <p>{validationError || errorMessage}</p>
                 {canPasteFallback && !usePastedMode && (
                   <button
@@ -104,54 +123,49 @@ export const Hero: React.FC<HeroProps> = ({
                     onClick={() => {
                       setUsePastedMode(true);
                       setValidationError(null);
+                      onClearError();
                     }}
-                    className="text-[#E9F056] font-bold underline hover:text-white transition-colors block"
+                    className="cursor-pointer text-left text-sm font-semibold text-[#E9F056] underline underline-offset-4 hover:text-white"
                   >
-                    Paste the website copy directly instead →
+                    Paste page copy instead
                   </button>
                 )}
               </div>
             </div>
           )}
 
-          {/* Primary Action Button */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-[#E9F056] hover:bg-[#dce34a] text-[#132F32] font-display font-black text-xl tracking-wider py-4 px-6 uppercase transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed active:translate-y-0.5"
+            className="inline-flex min-h-12 min-w-[180px] cursor-pointer items-center justify-center gap-2 border border-[#E9F056] bg-[#E9F056] px-5 py-3 text-base font-semibold text-[#132F32] transition-colors hover:bg-[#f1f5a0] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isLoading ? (
-              <span className="flex items-center gap-2">
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                Analyzing website content...
-              </span>
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Roasting...
+              </>
             ) : (
               <>
-                <span>Roast this site</span>
-                <ArrowRight className="w-5 h-5" />
+                Roast this site
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </>
             )}
           </button>
         </form>
 
-        {/* Honest Input Option & Secondary Link */}
-        <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-mono text-white/60">
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-white/15 pt-4 text-sm text-white/75">
           <button
             type="button"
-            onClick={() => {
-              setUsePastedMode(!usePastedMode);
-              setValidationError(null);
-            }}
-            className="hover:text-[#E9F056] transition-colors flex items-center gap-1"
+            onClick={switchInputMode}
+            className="inline-flex cursor-pointer items-center gap-2 transition-colors hover:text-[#E9F056]"
           >
-            <FileText className="w-3 h-3" />
-            {usePastedMode ? 'Switch to URL input' : 'Paste text directly'}
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            {usePastedMode ? 'Use a URL instead' : 'Paste page copy'}
           </button>
-
           <button
             type="button"
             onClick={onHowItWorksClick}
-            className="hover:text-[#E9F056] transition-colors underline decoration-dotted"
+            className="cursor-pointer underline underline-offset-4 transition-colors hover:text-[#E9F056]"
           >
             How it works
           </button>

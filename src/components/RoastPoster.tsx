@@ -8,24 +8,57 @@ interface RoastPosterProps {
   onExportSuccess?: () => void;
 }
 
+const themes: Record<PosterTheme, {
+  label: string;
+  background: string;
+  ink: string;
+  accent: string;
+  border: string;
+}> = {
+  'certified-cooked': {
+    label: 'Paper',
+    background: 'bg-[#F7F4EA]',
+    ink: 'text-[#173F40]',
+    accent: 'bg-[#FF5C34]',
+    border: 'border-[#173F40]/20',
+  },
+  'crime-scene': {
+    label: 'Coral',
+    background: 'bg-[#F4D8CC]',
+    ink: 'text-[#173F40]',
+    accent: 'bg-[#FF5C34]',
+    border: 'border-[#173F40]/20',
+  },
+  'cold-verdict': {
+    label: 'Blue',
+    background: 'bg-[#D7EFFF]',
+    ink: 'text-[#173F40]',
+    accent: 'bg-[#E9F056]',
+    border: 'border-[#173F40]/20',
+  },
+};
+
 export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuccess }) => {
   const [selectedTheme, setSelectedTheme] = useState<PosterTheme>('certified-cooked');
   const [isExporting, setIsExporting] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const posterRef = useRef<HTMLDivElement>(null);
+  const theme = themes[selectedTheme];
 
   const handleCopyText = async () => {
-    const fullText = `ROASTIE: ${roastData.domain}\nScore: ${roastData.score}/100 - ${roastData.verdict}\n\n"${roastData.roast}"\n\n⚡ ${roastData.punchline}`;
+    const fullText = `Roastie: ${roastData.domain}\n${roastData.headline}\n\n${roastData.roast}`;
+    setCopyError(false);
+
     try {
       await navigator.clipboard.writeText(fullText);
       setCopiedText(true);
-      setTimeout(() => setCopiedText(false), 2000);
+      window.setTimeout(() => setCopiedText(false), 1800);
     } catch {
-      // Fallback
+      setCopyError(true);
     }
   };
-
-  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleDownloadPNG = async () => {
     if (!posterRef.current) return;
@@ -35,223 +68,122 @@ export const RoastPoster: React.FC<RoastPosterProps> = ({ roastData, onExportSuc
     try {
       const dataUrl = await toPng(posterRef.current, {
         cacheBust: true,
-        quality: 0.98,
         pixelRatio: 2,
         skipFonts: true,
       });
 
-      const sanitizedDomain = roastData.domain.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-      const filename = `roastie-${sanitizedDomain}.png`;
-
+      const safeDomain = roastData.domain
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 80) || 'website-copy';
       const link = document.createElement('a');
-      link.download = filename;
+      link.download = `roastie-${safeDomain}.png`;
       link.href = dataUrl;
       link.click();
-
-      if (onExportSuccess) {
-        onExportSuccess();
-      }
+      onExportSuccess?.();
     } catch (err) {
       console.error('Error generating PNG export:', err);
-      setExportError('Unable to generate PNG in this browser. You can use "Copy text" to share the roast.');
+      setExportError('Could not export the card in this browser. Copy the text instead.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  // Theme styles
-  const getThemeStyles = () => {
-    switch (selectedTheme) {
-      case 'certified-cooked':
-        return {
-          bg: 'bg-[#E9F056]',
-          text: 'text-[#132F32]',
-          border: 'border-[#132F32]',
-          accentBg: 'bg-[#132F32]',
-          accentText: 'text-[#E9F056]',
-          verdictBg: 'bg-[#FF5C34]',
-          verdictText: 'text-white',
-          quoteBg: 'bg-white/80',
-        };
-      case 'crime-scene':
-        return {
-          bg: 'bg-[#FF5C34]',
-          text: 'text-[#132F32]',
-          border: 'border-[#132F32]',
-          accentBg: 'bg-[#132F32]',
-          accentText: 'text-[#FF5C34]',
-          verdictBg: 'bg-[#E9F056]',
-          verdictText: 'text-[#132F32]',
-          quoteBg: 'bg-white/90',
-        };
-      case 'cold-verdict':
-      default:
-        return {
-          bg: 'bg-[#D7EFFF]',
-          text: 'text-[#132F32]',
-          border: 'border-[#132F32]',
-          accentBg: 'bg-[#132F32]',
-          accentText: 'text-[#D7EFFF]',
-          verdictBg: 'bg-[#FF5C34]',
-          verdictText: 'text-white',
-          quoteBg: 'bg-white',
-        };
-    }
-  };
-
-  const themeStyles = getThemeStyles();
-
   return (
-    <div className="w-full flex flex-col items-center space-y-6">
-      {/* Concise Theme Selector */}
-      <div className="flex items-center gap-2 bg-[#064D57] p-1.5 border border-white/20 clip-chamfer">
-        <span className="font-mono text-xs text-white/60 px-2 uppercase">Theme:</span>
-        <button
-          onClick={() => setSelectedTheme('certified-cooked')}
-          className={`px-3 py-1 font-mono text-xs font-bold transition-all ${
-            selectedTheme === 'certified-cooked'
-              ? 'bg-[#E9F056] text-[#132F32] shadow-sm'
-              : 'text-white/70 hover:text-white'
-          }`}
-        >
-          Wasabi
-        </button>
-        <button
-          onClick={() => setSelectedTheme('crime-scene')}
-          className={`px-3 py-1 font-mono text-xs font-bold transition-all ${
-            selectedTheme === 'crime-scene'
-              ? 'bg-[#FF5C34] text-white shadow-sm'
-              : 'text-white/70 hover:text-white'
-          }`}
-        >
-          Topaze
-        </button>
-        <button
-          onClick={() => setSelectedTheme('cold-verdict')}
-          className={`px-3 py-1 font-mono text-xs font-bold transition-all ${
-            selectedTheme === 'cold-verdict'
-              ? 'bg-[#D7EFFF] text-[#132F32] shadow-sm'
-              : 'text-white/70 hover:text-white'
-          }`}
-        >
-          Cool Blue
-        </button>
+    <div className="flex w-full flex-col items-center gap-5">
+      <div className="flex flex-wrap items-center justify-center gap-3" role="group" aria-label="Card style">
+        <span className="mr-1 text-sm text-white/75">Card style</span>
+        {(Object.entries(themes) as [PosterTheme, (typeof themes)[PosterTheme]][]).map(([value, option]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={selectedTheme === value}
+            onClick={() => setSelectedTheme(value)}
+            className={`cursor-pointer border-b-2 px-1 py-1 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E9F056] ${
+              selectedTheme === value
+                ? 'border-[#E9F056] text-white'
+                : 'border-transparent text-white/65 hover:text-white'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
-      {/* Standalone Poster (1080x1350 aspect ratio) */}
-      <div className="w-full max-w-[480px] aspect-[1080/1350] shadow-2xl relative overflow-hidden">
+      <div className="relative w-full max-w-[520px]">
         <div
           ref={posterRef}
-          className={`w-full h-full p-8 sm:p-10 flex flex-col justify-between ${themeStyles.bg} ${themeStyles.text} select-none relative`}
-          style={{ width: '100%', height: '100%' }}
+          className={`relative flex aspect-[4/5] w-full flex-col overflow-hidden border ${theme.border} ${theme.background} ${theme.ink} p-7 sm:p-10`}
         >
-          {/* Header */}
-          <div className={`border-b-2 ${themeStyles.border} pb-4 flex items-center justify-between`}>
-            <div className="flex items-center gap-2">
-              <span className={`w-7 h-7 ${themeStyles.accentBg} ${themeStyles.accentText} font-display font-black text-lg flex items-center justify-center rounded-sm`}>
-                R
-              </span>
-              <span className="font-display font-black text-2xl tracking-wider uppercase">
-                ROASTIE
-              </span>
-            </div>
-            <div className="text-right font-mono text-xs font-bold">
-              <span>{roastData.reportId}</span>
-              <span className="block text-[10px] opacity-70">{roastData.createdAt}</span>
-            </div>
-          </div>
+          <header className={`flex items-center justify-between gap-4 border-b pb-4 ${theme.border}`}>
+            <span className="text-lg font-bold tracking-tight">roastie</span>
+            <span className="text-sm opacity-70">website roast</span>
+          </header>
 
-          {/* Body */}
-          <div className="my-auto space-y-5">
-            <div>
-              <span className="font-mono text-xs uppercase tracking-widest block opacity-70 mb-1">
-                TARGET WEBSITE
-              </span>
-              <h2 className="font-display font-black text-3xl sm:text-4xl uppercase tracking-tight break-all leading-tight">
-                {roastData.domain}
-              </h2>
-            </div>
-
-            {/* Score & Verdict */}
-            <div className={`p-4 ${themeStyles.quoteBg} border-2 ${themeStyles.border} shadow-sm flex items-center justify-between gap-4`}>
-              <div>
-                <span className="font-mono text-[10px] uppercase tracking-widest block opacity-70">
-                  ENTERTAINMENT SCORE
-                </span>
-                <span className="font-display font-black text-5xl text-[#FF5C34]">
-                  {roastData.score}
-                  <span className="font-mono text-lg text-[#132F32]/60">/100</span>
-                </span>
-              </div>
-              <div className="text-right">
-                <span className={`inline-block font-display font-black text-sm px-3 py-1.5 uppercase tracking-wide ${themeStyles.verdictBg} ${themeStyles.verdictText} border ${themeStyles.border}`}>
-                  {roastData.verdict}
-                </span>
-              </div>
-            </div>
-
-            {/* Roast text */}
-            <p className="font-body text-base leading-relaxed font-medium">
-              "{roastData.roast}"
+          <main className="my-auto py-8 sm:py-10">
+            <p className="mb-5 break-words text-sm font-medium opacity-70">
+              {roastData.domain}
             </p>
+            <div className={`mb-7 h-1.5 w-14 ${theme.accent}`} aria-hidden="true" />
+            <h2 className="break-words text-4xl font-bold leading-[0.98] tracking-tight sm:text-6xl">
+              {roastData.headline}
+            </h2>
+            <p className="mt-6 max-w-prose break-words text-lg leading-snug sm:text-xl">
+              {roastData.roast}
+            </p>
+          </main>
 
-            {/* Punchline */}
-            <div className={`p-3.5 border-l-4 ${themeStyles.border} ${themeStyles.accentBg} ${themeStyles.accentText} font-mono text-xs sm:text-sm font-bold leading-snug`}>
-              ⚡ {roastData.punchline}
-            </div>
-          </div>
-
-          {/* Poster Footer */}
-          <div className={`border-t-2 ${themeStyles.border} pt-3 flex items-center justify-between font-mono text-[10px] uppercase font-bold opacity-75`}>
-            <span>ENTERTAINMENT SCORE</span>
-            <span>ROASTIE</span>
-          </div>
+          <footer className={`flex items-center justify-between gap-4 border-t pt-4 text-sm ${theme.border}`}>
+            <span className="opacity-75">For entertainment</span>
+            <span className="font-semibold">roastie</span>
+          </footer>
         </div>
       </div>
 
-      {/* Export & Copy Controls */}
-      <div className="flex flex-wrap items-center justify-center gap-3 w-full max-w-md">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <button
+          type="button"
           onClick={handleDownloadPNG}
           disabled={isExporting}
-          className="flex-1 bg-[#E9F056] hover:bg-[#dce34a] text-[#132F32] font-display font-black text-lg py-3.5 px-6 uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:translate-y-0.5 disabled:opacity-60"
+          className="inline-flex cursor-pointer items-center justify-center gap-2 border border-[#E9F056] bg-[#E9F056] px-5 py-3 text-sm font-semibold text-[#132F32] transition-colors hover:bg-[#f1f5a0] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isExporting ? (
             <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
-              Generating PNG...
+              <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Preparing card
             </>
           ) : (
             <>
-              <Download className="w-5 h-5" />
-              Download roast poster
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download card
             </>
           )}
         </button>
 
         <button
+          type="button"
           onClick={handleCopyText}
-          className="bg-[#064D57] hover:bg-[#085a66] border border-white/20 text-white font-mono text-xs font-bold py-3.5 px-4 flex items-center justify-center gap-1.5 transition-colors"
-          title="Copy roast text"
+          className="inline-flex cursor-pointer items-center justify-center gap-2 border border-white/30 px-4 py-3 text-sm text-white transition-colors hover:border-white hover:bg-white/5"
         >
           {copiedText ? (
             <>
-              <Check className="w-4 h-4 text-[#E9F056]" />
+              <Check className="h-4 w-4" aria-hidden="true" />
               Copied
             </>
           ) : (
             <>
-              <Copy className="w-4 h-4" />
+              <Copy className="h-4 w-4" aria-hidden="true" />
               Copy text
             </>
           )}
         </button>
       </div>
 
-      {exportError && (
-        <div className="w-full max-w-md bg-[#FF5C34]/20 border border-[#FF5C34] text-white p-3 font-mono text-xs text-center clip-chamfer">
-          {exportError}
-        </div>
+      {(exportError || copyError) && (
+        <p role="status" className="max-w-[520px] text-sm text-[#F7D6CC]">
+          {exportError || 'Copy is unavailable in this browser. Select the card text to copy it manually.'}
+        </p>
       )}
     </div>
   );

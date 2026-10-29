@@ -12,39 +12,34 @@ export const Header: React.FC<HeaderProps> = ({
   isResultsView = false,
 }) => {
   return (
-    <header className="w-full max-w-5xl mx-auto px-4 sm:px-6 pt-6 pb-4">
-      <div className="border border-white/20 bg-[#064D57]/70 backdrop-blur-md px-5 py-3 flex items-center justify-between gap-4 clip-chamfer">
-        {/* Roastie Wordmark */}
-        <button
-          onClick={onReset}
-          className="flex items-center gap-2.5 text-left group transition-opacity hover:opacity-90"
-        >
-          <div className="w-8 h-8 bg-[#E9F056] text-[#132F32] flex items-center justify-center font-display font-black text-xl rounded-sm">
-            R
-          </div>
-          <span className="font-display font-black text-2xl tracking-wider text-white">
-            ROASTIE<span className="text-[#E9F056]">.</span>
-          </span>
-        </button>
+    <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 border-b border-white/15 px-4 py-5 sm:px-6">
+      <button
+        type="button"
+        onClick={onReset}
+        aria-label="Roastie home"
+        className="cursor-pointer text-left text-xl font-bold tracking-tight text-white transition-colors hover:text-[#E9F056]"
+      >
+        roastie<span className="text-[#E9F056]">.</span>
+      </button>
 
-        {/* Discreet Secondary Link */}
-        <div className="flex items-center gap-4">
+      <nav className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={onHowItWorksClick}
+          className="cursor-pointer text-sm text-white/75 transition-colors hover:text-[#E9F056]"
+        >
+          How it works
+        </button>
+        {isResultsView && (
           <button
-            onClick={onHowItWorksClick}
-            className="text-xs font-mono tracking-wider text-white/70 hover:text-[#E9F056] transition-colors uppercase"
+            type="button"
+            onClick={onReset}
+            className="hidden cursor-pointer border-b border-[#E9F056]/60 pb-1 text-sm text-[#E9F056] transition-colors hover:text-white sm:inline-flex"
           >
-            How it works
+            Roast another site
           </button>
-          {isResultsView && (
-            <button
-              onClick={onReset}
-              className="text-xs font-mono font-bold text-[#E9F056] hover:text-white transition-colors uppercase border border-[#E9F056]/40 px-2.5 py-1"
-            >
-              ← Roast another site
-            </button>
-          )}
-        </div>
-      </div>
+        )}
+      </nav>
     </header>
   );
 };
