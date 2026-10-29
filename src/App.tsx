@@ -198,7 +198,7 @@ export default function App() {
         musicText: tracks.join('\n'),
         roastStyleId,
         sourceItems: tracks,
-        sourceLabel: source === 'top' ? 'Spotify top 5 tracks' : 'Spotify saved favourites',
+        sourceLabel: source === 'top' ? 'Spotify top 5 tracks' : 'Spotify saved tracks',
       });
     } catch (error) {
       setIsLoading(false);
