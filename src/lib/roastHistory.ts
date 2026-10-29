@@ -81,3 +81,11 @@ export function exportRoastHistory(entries: RoastHistoryEntry[]): void {
   anchor.click();
   URL.revokeObjectURL(url);
 }
+
+export function clearRoastHistory(): void {
+  try {
+    window.localStorage.removeItem(HISTORY_KEY);
+  } catch {
+    // Ignore browser storage restrictions.
+  }
+}
