@@ -138,6 +138,20 @@ async function fetchAndExtractWebsiteContent(targetUrl: string): Promise<{ title
   }
 }
 
+// Lightweight diagnostic endpoint for hosted and AI Studio deployments.
+// Never return secrets or exception details from this route.
+app.get('/api/health', (_req: Request, res: Response) => {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const aiConfigured = Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY');
+
+  res.status(200).json({
+    ok: true,
+    service: 'roastie-api',
+    aiConfigured,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Core API endpoint for website roasting
 app.post('/api/roast', async (req: Request, res: Response) => {
   try {
