@@ -1,0 +1,32 @@
+[
+  {
+    "id": "roast-master",
+    "label": "Roast Master",
+    "description": "Sharp setups, escalating punchlines and clean callbacks."
+  },
+  {
+    "id": "rapid-fire",
+    "label": "Rapid-fire",
+    "description": "Short, fast hits with tight punchlines."
+  },
+  {
+    "id": "deadpan",
+    "label": "Deadpan",
+    "description": "Dry, understated and brutally precise."
+  },
+  {
+    "id": "absurdist",
+    "label": "Absurdist",
+    "description": "Unexpected comparisons and escalating nonsense."
+  },
+  {
+    "id": "storyteller",
+    "label": "Storyteller",
+    "description": "Conversational setup, self-aware exaggeration and a strong payoff."
+  },
+  {
+    "id": "crowd-work",
+    "label": "Crowd-work",
+    "description": "Playful direct address and cheeky, specific observations."
+  }
+]
