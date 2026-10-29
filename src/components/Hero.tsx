@@ -142,7 +142,7 @@ export const Hero: React.FC<HeroProps> = ({
                   className="w-full appearance-none border border-[#FF5C34]/75 bg-[#103E43] px-4 py-3.5 font-body text-base text-white transition-colors hover:border-[#FF8A70] focus:border-[#E9F056] focus:outline-none focus:ring-2 focus:ring-[#E9F056]/20 disabled:opacity-60"
                 >
                   <option value="top">Top 5 tracks (long-term)</option>
-                  <option value="saved">5 saved tracks / favourites</option>
+                  <option value="saved">5 saved tracks from Your Library</option>
                 </select>
               </div>
 
