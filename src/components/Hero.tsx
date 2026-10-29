@@ -69,8 +69,8 @@ export const Hero: React.FC<HeroProps> = ({
       parsedUrl.pathname.startsWith('/c/');
 
     if (isPrivateChatLink) {
-      setValidationError('ChatGPT conversation links are private. Paste the page copy instead.');
-      setCanPasteFallback(true);
+      setValidationError('ChatGPT conversation links are private. Paste the page copy below.');
+      setUsePastedMode(true);
       return;
     }
 
