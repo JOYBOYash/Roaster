@@ -9,7 +9,7 @@ const steps = [
   {
     num: '02',
     title: 'Get roasted',
-    desc: 'Roastie writes a joke based on the supplied text.',
+    desc: 'Get a short roast based on the website copy or music list you provide.',
   },
   {
     num: '03',
