@@ -152,11 +152,24 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
+const ROAST_STYLE_INSTRUCTIONS: Record<string, string> = {
+  'roast-master': 'Use a precise setup, escalating sarcasm, an unexpected comparison, and one memorable final punchline. Keep it original and tightly edited.',
+  'rapid-fire': 'Use compact, rapid-fire one-liners and quick reversals. Cut every setup word that is not needed.',
+  'deadpan': 'Deliver the joke with calm, dry understatement. Make the contrast do the work; avoid shouting or explaining the punchline.',
+  'absurdist': 'Use one surprising, vivid comparison and let the logic escalate into playful absurdity without inventing facts.',
+  'storyteller': 'Use a conversational setup followed by a sharp, surprising payoff. Keep the miniature story short and grounded in the input.',
+  'crowd-work': 'Address the input playfully and directly, as if riffing with a friendly audience. Be teasing, specific, and never cruel about sensitive traits.',
+};
+
 // Core API endpoint for website roasting
 app.post('/api/roast', async (req: Request, res: Response) => {
   try {
-    const { url, pastedText, mode, musicText } = req.body;
+    const { url, pastedText, mode, musicText, roastStyleId: requestedStyleId } = req.body;
     const isMusicMode = mode === 'music';
+    const roastStyleId = typeof requestedStyleId === 'string' && Object.prototype.hasOwnProperty.call(ROAST_STYLE_INSTRUCTIONS, requestedStyleId)
+      ? requestedStyleId
+      : 'roast-master';
+    const roastStyleInstruction = ROAST_STYLE_INSTRUCTIONS[roastStyleId];
 
     if (isMusicMode) {
       if (typeof musicText !== 'string' || !musicText.trim()) {
@@ -234,36 +247,46 @@ app.post('/api/roast', async (req: Request, res: Response) => {
         }
       });
 
-      const sourceLabel = inputMethod === 'url' ? domain : inputMethod === 'music' ? 'the submitted music list' : 'the pasted website copy';
+      const sourceLabel = inputMethod === 'url' ? domain : inputMethod === 'music' ? 'the submitted Spotify music list' : 'the pasted website copy';
       const prompt = inputMethod === 'music'
         ? `Roast the person's music taste using only the artist and track names in this list.
 
 Write:
-- headline: 3 to 7 words, a sharp hook.
-- roast: one punchy paragraph of 18 to 30 words.
+- headline: 3 to 7 words, with a sharp, specific hook.
+- roast: one sarcastic, punchy paragraph of 20 to 32 words.
+
+Comic direction:
+${roastStyleInstruction}
 
 Rules:
-- Joke about the specific mix of artists and songs that are actually listed.
-- Do not invent tracks, artists, listening history, genres, personality traits, age, identity, or life events.
-- If the list is too vague to infer a music pattern, joke about the list itself.
-- No scores, rankings, verdict labels, advice, or second summary.
-- Avoid filler, repeated points, all-caps writing, and corporate catchphrases.
+- Be noticeably sarcastic, quick, vivid, and funny. Aim for one strong laugh, not a polite observation.
+- Use one original comparison or a sharp reversal where it fits. Do not pad the joke.
+- Joke about the actual combination of listed songs and artists.
+- Do not invent songs, genres, listening history, personality traits, age, identity, relationships, or life events.
+- Do not infer sensitive personal traits.
+- No scores, rankings, verdict labels, advice, or a second summary.
+- Never mention a preset or explain the joke.
 
-Submitted music list:
+Submitted Spotify tracks:
 ${extractedText}`
-        : `Write one specific, funny website roast based only on the source text below for ${sourceLabel}.
+        : `Write one original, highly sarcastic roast based only on the supplied website text for ${sourceLabel}.
 
-Return:
+Write:
 - headline: 3 to 7 words, a sharp hook that does not repeat the roast.
-- roast: one punchy paragraph of 18 to 30 words.
+- roast: one punchy paragraph of 20 to 32 words.
+
+Comic direction:
+${roastStyleInstruction}
 
 Rules:
-- Use only details and phrases present in the supplied text.
+- Be specific, sarcastic, and properly funny. Aim for a memorable punchline instead of a generic insult.
+- Use one vivid comparison or reversal when useful; remove filler and repeated ideas.
+- Use only details present in the supplied text.
 - Never invent features, pricing, customers, metrics, visual design, bugs, performance, SEO results, or claims about the site.
 - Do not imply the site was tested. This is a roast of the supplied copy only.
-- If there is too little detail for a specific joke, say so briefly and make the joke about the copy being too vague.
+- If the source has too little detail, roast the vagueness itself.
 - No scores, rankings, verdict labels, advice, recommendations, or second summary.
-- Avoid filler, repeated points, all-caps writing, and corporate catchphrases.
+- Never mention a preset or explain the joke.
 
 Source text:
 ${extractedText}`;
@@ -272,7 +295,7 @@ ${extractedText}`;
         model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
-          systemInstruction: inputMethod === 'music' ? 'You write concise, specific comedy about a user-submitted music list. Never invent songs or infer sensitive personal traits. Return valid JSON with exactly the fields headline and roast.' : 'You write concise comedy about website copy. Be pointed and funny, but never claim facts that are absent from the supplied text. Return valid JSON with exactly the fields headline and roast.',
+          systemInstruction: inputMethod === 'music' ? 'You are Roastie, a sarcastic original roast writer. Deliver a specific, genuinely funny punchline. Never invent songs or infer sensitive personal traits. Return JSON with exactly headline and roast.' : 'You are Roastie, a sarcastic original roast writer. Deliver a specific, genuinely funny punchline without inventing website facts. Return JSON with exactly headline and roast.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -328,7 +351,8 @@ ${extractedText}`;
         domain,
         headline: headlineText,
         roast: roastText,
-        inputMethod
+        inputMethod,
+        roastStyleId
       }
     });
   } catch (err: any) {
