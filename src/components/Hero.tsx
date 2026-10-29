@@ -157,7 +157,7 @@ export const Hero: React.FC<HeroProps> = ({
                   className="inline-flex cursor-pointer items-center gap-2 text-sm text-white/65 underline underline-offset-4 transition-colors hover:text-[#FF8A70]"
                 >
                   <Unplug className="h-4 w-4" aria-hidden="true" />
-                  Disconnect Spotify for this tab
+                  Clear Spotify session
                 </button>
               )}
             </div>
