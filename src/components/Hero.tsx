@@ -62,6 +62,18 @@ export const Hero: React.FC<HeroProps> = ({
     const cleanedUrl = /^https?:\/\//i.test(trimmedUrl)
       ? trimmedUrl.replace(/^https?:\/\//i, (protocol) => protocol.toLowerCase())
       : `https://${trimmedUrl}`;
+
+    const parsedUrl = new URL(cleanedUrl);
+    const isPrivateChatLink =
+      (parsedUrl.hostname === 'chatgpt.com' || parsedUrl.hostname === 'chat.openai.com') &&
+      parsedUrl.pathname.startsWith('/c/');
+
+    if (isPrivateChatLink) {
+      setValidationError('ChatGPT conversation links are private. Paste the page copy instead.');
+      setCanPasteFallback(true);
+      return;
+    }
+
     await onRoastSubmit({ url: cleanedUrl });
   };
 
