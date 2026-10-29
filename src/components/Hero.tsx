@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, RefreshCw, AlertCircle, FileText, Flame, Globe2 } from 'lucide-react';
+import { ArrowRight, RefreshCw, AlertCircle, FileText, Flame, Globe } from 'lucide-react';
 
 interface HeroProps {
   onRoastSubmit: (input: { url?: string; pastedText?: string }) => Promise<void>;
