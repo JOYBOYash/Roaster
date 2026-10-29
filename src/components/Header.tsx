@@ -3,12 +3,16 @@ import React from 'react';
 interface HeaderProps {
   onHowItWorksClick: () => void;
   onReset: () => void;
+  onHistoryClick: () => void;
+  hasHistory?: boolean;
   isResultsView?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onHowItWorksClick,
   onReset,
+  onHistoryClick,
+  hasHistory = false,
   isResultsView = false,
 }) => {
   return (
@@ -23,6 +27,15 @@ export const Header: React.FC<HeaderProps> = ({
       </button>
 
       <nav className="flex items-center gap-4">
+        {hasHistory && (
+          <button
+            type="button"
+            onClick={onHistoryClick}
+            className="cursor-pointer text-sm text-white/75 transition-colors hover:text-[#E9F056]"
+          >
+            History
+          </button>
+        )}
         <button
           type="button"
           onClick={onHowItWorksClick}
