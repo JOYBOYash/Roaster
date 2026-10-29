@@ -279,10 +279,17 @@ export async function fetchSpotifyMusic(source: SpotifyMusicSource): Promise<str
   const payload = await response.json() as SpotifyItemsResponse;
   const items = (payload.items || []).map((item) => {
     if (!item) return null;
-    const candidate = 'track' in item ? item.track : item;
-    if (!candidate || !candidate.name) return null;
-    const artists = (candidate.artists || []).map((artist) => artist.name).filter(Boolean).join(', ');
-    return artists ? `${candidate.name} by ${artists}` : candidate.name;
+
+    const candidate = (('track' in item ? item.track : item) || null) as SpotifyTrack | null;
+    if (!candidate || typeof candidate.name !== 'string' || !candidate.name.trim()) return null;
+
+    const artists = (candidate.artists || [])
+      .map((artist: { name?: string }) => artist.name)
+      .filter((name): name is string => typeof name === 'string' && Boolean(name.trim()))
+      .join(', ');
+    const trackName = candidate.name.trim();
+
+    return artists ? `${trackName} by ${artists}` : trackName;
   }).filter((item): item is string => Boolean(item));
 
   if (items.length === 0) {
