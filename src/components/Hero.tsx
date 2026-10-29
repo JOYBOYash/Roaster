@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, RefreshCw, AlertCircle, FileText } from 'lucide-react';
+import { ArrowRight, RefreshCw, AlertCircle, FileText, Flame, Globe } from 'lucide-react';
 
 interface HeroProps {
   onRoastSubmit: (input: { url?: string; pastedText?: string }) => Promise<void>;
@@ -71,25 +71,31 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="mx-auto w-full max-w-xl border border-white/20 bg-[#064D57] p-5 text-left sm:p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           {!usePastedMode ? (
-            <div className="mx-auto w-full max-w-[400px] sm:mx-0">
+            <div className="group mx-auto w-full max-w-[400px] sm:mx-0">
               <label htmlFor="target-website-url" className="sr-only">
                 Website URL
               </label>
-              <input
-                id="target-website-url"
-                type="text"
-                inputMode="url"
-                autoComplete="url"
-                value={urlInput}
-                onChange={(e) => {
-                  setUrlInput(e.target.value);
-                  setValidationError(null);
-                  onClearError();
-                }}
-                placeholder="yourwebsite.com"
-                disabled={isLoading}
-                className="w-full border border-white/25 bg-[#132F32] px-4 py-3.5 font-body text-base text-white placeholder-white/50 transition-colors focus:border-[#E9F056] focus:outline-none focus:ring-1 focus:ring-[#E9F056] disabled:cursor-not-allowed disabled:opacity-60"
-              />
+              <div className="relative border border-[#FF5C34]/75 bg-[#103E43] transition-colors duration-200 hover:border-[#FF8A70] focus-within:border-[#E9F056] focus-within:ring-2 focus-within:ring-[#E9F056]/20">
+                <Globe
+                  className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#FF8A70] transition-colors group-focus-within:text-[#E9F056]"
+                  aria-hidden="true"
+                />
+                <input
+                  id="target-website-url"
+                  type="text"
+                  inputMode="url"
+                  autoComplete="url"
+                  value={urlInput}
+                  onChange={(e) => {
+                    setUrlInput(e.target.value);
+                    setValidationError(null);
+                    onClearError();
+                  }}
+                  placeholder="yourwebsite.com"
+                  disabled={isLoading}
+                  className="w-full border-0 bg-transparent py-4 pl-11 pr-4 font-body text-base text-white placeholder-white/45 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </div>
             </div>
           ) : (
             <div className="w-full">
@@ -137,17 +143,21 @@ export const Hero: React.FC<HeroProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="inline-flex min-h-12 min-w-[180px] cursor-pointer items-center justify-center gap-2 border border-[#E9F056] bg-[#E9F056] px-5 py-3 text-base font-semibold text-[#132F32] transition-colors hover:bg-[#f1f5a0] disabled:cursor-not-allowed disabled:opacity-60"
+            className="group relative inline-flex min-h-[58px] w-full cursor-pointer items-center justify-center gap-3 overflow-hidden border border-[#E9F056] bg-[#E9F056] px-5 py-4 font-display text-base font-extrabold uppercase tracking-[0.075em] text-[#132F32] transition-[background-color,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-[#F2F5A0] hover:bg-[#F0F49A] active:translate-y-px disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg"
           >
             {isLoading ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <RefreshCw className="h-[18px] w-[18px] animate-spin" aria-hidden="true" />
                 Roasting...
               </>
             ) : (
               <>
-                Roast this site
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <Flame
+                  className="h-[19px] w-[19px] fill-current transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-110"
+                  aria-hidden="true"
+                />
+                <span>Roast this site</span>
+                <ArrowRight className="h-[18px] w-[18px] transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
               </>
             )}
           </button>
