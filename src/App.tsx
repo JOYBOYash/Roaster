@@ -54,7 +54,7 @@ export default function App() {
   const [canPasteFallback, setCanPasteFallback] = useState(false);
   const [hasExported, setHasExported] = useState(false);
 
-  const handleRoastSubmit = async (input: { url?: string; pastedText?: string }) => {
+  const handleRoastSubmit = async (input: { url?: string; pastedText?: string; musicText?: string; mode?: 'website' | 'music' }) => {
     setIsLoading(true);
     setErrorMessage(null);
     setCanPasteFallback(false);
