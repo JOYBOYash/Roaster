@@ -11,7 +11,7 @@ export const Footer: React.FC<FooterProps> = ({ onShowHowItWorks }) => {
         <div>
           <p className="text-base font-semibold tracking-tight text-white">roastie.</p>
           <p className="mt-2 max-w-xl text-sm leading-relaxed">
-            Website roasts use supplied page copy. Music roasts use the tracks you paste. Results are for entertainment; Roastie does not test websites or access Spotify accounts.
+            Website roasts use supplied page copy. Music roasts use your selected Spotify tracks. History stays on this device. Results are for entertainment.
           </p>
         </div>
         <button
@@ -22,6 +22,7 @@ export const Footer: React.FC<FooterProps> = ({ onShowHowItWorks }) => {
           How it works
         </button>
       </div>
+      <p className="mx-auto mt-6 w-full max-w-4xl text-xs text-white/50">Built by <span className="font-semibold text-[#E9F056]">Roastmaster JoyBoy</span>.</p>
     </footer>
   );
 };

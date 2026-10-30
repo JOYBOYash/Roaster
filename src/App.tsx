@@ -1,16 +1,43 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { HowItWorks } from './components/HowItWorks';
 import { RoastResults } from './components/RoastResults';
+import { RoastHistory } from './components/RoastHistory';
 import { DonationSupport } from './components/DonationSupport';
 import { Footer } from './components/Footer';
 import { RoastResult, RoastResponse } from './types/roast';
+import {
+  clearRoastHistory,
+  exportRoastHistory,
+  readRoastHistory,
+  RoastHistoryEntry,
+  saveRoastToHistory,
+} from './lib/roastHistory';
+import {
+  beginSpotifyAuthorization,
+  completeSpotifyCallback,
+  disconnectSpotify,
+  fetchSpotifyMusic,
+  hasSpotifyScope,
+  hasSpotifySession,
+  SpotifyMusicSource,
+} from './lib/spotify';
 
 type ApiHealth = {
   ok?: boolean;
   service?: string;
   aiConfigured?: boolean;
+};
+
+type RoastSubmitInput = {
+  url?: string;
+  pastedText?: string;
+  mode?: 'music';
+  musicText?: string;
+  roastStyleId?: string;
+  sourceItems?: string[];
+  sourceLabel?: string;
 };
 
 async function diagnoseApiFailure(status: number | null, route: string): Promise<string> {
@@ -47,75 +74,183 @@ async function diagnoseApiFailure(status: number | null, route: string): Promise
   }
 }
 
+const pause = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
 export default function App() {
   const [isLoading, setIsLoading] = useState(false);
+  const [countdown, setCountdown] = useState<number | 'ROAST' | null>(null);
   const [roastData, setRoastData] = useState<RoastResult | null>(null);
+  const [roastHistory, setRoastHistory] = useState<RoastHistoryEntry[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canPasteFallback, setCanPasteFallback] = useState(false);
   const [hasExported, setHasExported] = useState(false);
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [isSpotifyFetching, setIsSpotifyFetching] = useState(false);
+  const spotifyCallbackHandled = useRef(false);
 
-  const handleRoastSubmit = async (input: { url?: string; pastedText?: string; musicText?: string; mode?: 'website' | 'music' }) => {
-    setIsLoading(true);
+  useEffect(() => {
+    setRoastHistory(readRoastHistory());
+  }, []);
+
+  const handleRoastSubmit = async (input: RoastSubmitInput) => {
     setErrorMessage(null);
     setCanPasteFallback(false);
 
+    // Brief "ready, set, roast" moment before a request is sent.
+    setCountdown(3);
+    await pause(550);
+    setCountdown(2);
+    await pause(550);
+    setCountdown(1);
+    await pause(550);
+    setCountdown('ROAST');
+    await pause(350);
+    setCountdown(null);
+
+    setIsLoading(true);
     try {
+      const requestBody = {
+        ...(input.url ? { url: input.url } : {}),
+        ...(input.pastedText ? { pastedText: input.pastedText } : {}),
+        ...(input.mode === 'music' ? { mode: 'music', musicText: input.musicText } : {}),
+        roastStyleId: input.roastStyleId || 'roast-master',
+      };
       const response = await fetch('/api/roast', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       });
 
       const contentType = response.headers.get('content-type') || '';
-
       if (!response.ok) {
-        let msg: string;
-
+        let message: string;
         if (contentType.includes('application/json')) {
           try {
-            const errData = await response.json();
-            msg = typeof errData?.error === 'string'
-              ? errData.error
+            const errorPayload = await response.json();
+            message = typeof errorPayload?.error === 'string'
+              ? errorPayload.error
               : await diagnoseApiFailure(response.status, '/api/roast');
           } catch {
-            msg = await diagnoseApiFailure(response.status, '/api/roast');
+            message = await diagnoseApiFailure(response.status, '/api/roast');
           }
         } else {
-          msg = await diagnoseApiFailure(response.status, '/api/roast');
+          message = await diagnoseApiFailure(response.status, '/api/roast');
         }
-
-        setErrorMessage(msg);
-        setCanPasteFallback(false);
+        setErrorMessage(message);
         return;
       }
 
       if (!contentType.includes('application/json')) {
         setErrorMessage(await diagnoseApiFailure(response.status, '/api/roast'));
-        setCanPasteFallback(false);
         return;
       }
 
-      const resData: RoastResponse = await response.json();
-
-      if (resData.success && resData.data) {
-        setRoastData(resData.data);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        setErrorMessage(resData.error || 'Failed to analyze website. Please check the URL.');
-        if (resData.canPasteFallback) {
-          setCanPasteFallback(true);
-        }
+      const responseData: RoastResponse = await response.json();
+      if (!responseData.success || !responseData.data) {
+        setErrorMessage(responseData.error || 'No roast was generated. Please try again.');
+        setCanPasteFallback(Boolean(responseData.canPasteFallback && input.mode !== 'music'));
+        return;
       }
-    } catch (err: any) {
-      console.error('Request failed:', err);
+
+      const styleId = input.roastStyleId || responseData.data.roastStyleId || 'roast-master';
+      const result: RoastResult = {
+        ...responseData.data,
+        roastStyleId: styleId,
+        sourceLabel: input.sourceLabel || (input.mode === 'music'
+          ? 'Spotify top tracks'
+          : input.pastedText ? 'Pasted website copy' : responseData.data.domain),
+        sourceItems: input.sourceItems,
+        createdAt: new Date().toISOString(),
+      };
+
+      setRoastData(result);
+      setHasExported(false);
+      setRoastHistory(saveRoastToHistory(result, styleId));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Roast request failed:', error);
       setErrorMessage(await diagnoseApiFailure(null, '/api/roast'));
       setCanPasteFallback(false);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleSpotifyAction = async (source: SpotifyMusicSource, roastStyleId: string) => {
+    setErrorMessage(null);
+    setCanPasteFallback(false);
+
+    try {
+      if (!hasSpotifyScope(source)) {
+        await beginSpotifyAuthorization(source, roastStyleId);
+        return;
+      }
+
+      setIsSpotifyFetching(true);
+      setIsLoading(true);
+      const tracks = await fetchSpotifyMusic(source);
+      setSpotifyConnected(hasSpotifySession());
+      setIsLoading(false);
+      setIsSpotifyFetching(false);
+
+      await handleRoastSubmit({
+        mode: 'music',
+        musicText: tracks.join('\n'),
+        roastStyleId,
+        sourceItems: tracks,
+        sourceLabel: source === 'top' ? 'Spotify top 5 tracks' : 'Spotify saved tracks',
+      });
+    } catch (error) {
+      setIsLoading(false);
+      setIsSpotifyFetching(false);
+      setSpotifyConnected(hasSpotifySession());
+      setErrorMessage(error instanceof Error ? error.message : 'Could not retrieve tracks from Spotify.');
+    }
+  };
+
+  const handleDisconnectSpotify = () => {
+    disconnectSpotify();
+    setSpotifyConnected(false);
+    setErrorMessage(null);
+  };
+
+  useEffect(() => {
+    if (spotifyCallbackHandled.current) return;
+    spotifyCallbackHandled.current = true;
+    let active = true;
+
+    const finishSpotifyConnection = async () => {
+      try {
+        const authorization = await completeSpotifyCallback();
+        if (!authorization || !active) return;
+
+        setSpotifyConnected(true);
+        setIsSpotifyFetching(true);
+        setIsLoading(true);
+        const tracks = await fetchSpotifyMusic(authorization.source);
+        if (!active) return;
+
+        setIsSpotifyFetching(false);
+        setIsLoading(false);
+        await handleRoastSubmit({
+          mode: 'music',
+          musicText: tracks.join('\n'),
+          roastStyleId: authorization.roastStyleId,
+          sourceItems: tracks,
+          sourceLabel: authorization.source === 'top' ? 'Spotify top 5 tracks' : 'Spotify saved favourites',
+        });
+      } catch (error) {
+        if (!active) return;
+        setIsSpotifyFetching(false);
+        setIsLoading(false);
+        setSpotifyConnected(hasSpotifySession());
+        setErrorMessage(error instanceof Error ? error.message : 'Spotify connection failed.');
+      }
+    };
+
+    void finishSpotifyConnection();
+    return () => { active = false; };
+  }, []);
 
   const handleReset = () => {
     setRoastData(null);
@@ -128,14 +263,31 @@ export default function App() {
   const handleShowHowItWorks = () => {
     if (roastData) {
       setRoastData(null);
-      setTimeout(() => {
-        const el = document.getElementById('how-it-works');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 50);
+      window.setTimeout(() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' }), 80);
     } else {
-      const el = document.getElementById('how-it-works');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  const handleShowHistory = () => {
+    if (roastData) {
+      setRoastData(null);
+      window.setTimeout(() => document.getElementById('roast-history')?.scrollIntoView({ behavior: 'smooth' }), 80);
+    } else {
+      document.getElementById('roast-history')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleOpenHistory = (entry: RoastHistoryEntry) => {
+    setRoastData(entry.result);
+    setHasExported(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleClearHistory = () => {
+    if (!window.confirm('Clear all Roastie history saved on this device?')) return;
+    clearRoastHistory();
+    setRoastHistory([]);
   };
 
   return (
@@ -144,6 +296,8 @@ export default function App() {
         <Header
           onReset={handleReset}
           onHowItWorksClick={handleShowHowItWorks}
+          onHistoryClick={handleShowHistory}
+          hasHistory={roastHistory.length > 0}
           isResultsView={Boolean(roastData)}
         />
 
@@ -152,7 +306,10 @@ export default function App() {
             <>
               <Hero
                 onRoastSubmit={handleRoastSubmit}
-                isLoading={isLoading}
+                onSpotifyAction={handleSpotifyAction}
+                onDisconnectSpotify={handleDisconnectSpotify}
+                spotifyConnected={spotifyConnected}
+                isLoading={isLoading || isSpotifyFetching || countdown !== null}
                 errorMessage={errorMessage}
                 canPasteFallback={canPasteFallback}
                 onHowItWorksClick={handleShowHowItWorks}
@@ -160,6 +317,12 @@ export default function App() {
                   setErrorMessage(null);
                   setCanPasteFallback(false);
                 }}
+              />
+              <RoastHistory
+                entries={roastHistory}
+                onOpen={handleOpenHistory}
+                onExport={() => exportRoastHistory(roastHistory)}
+                onClear={handleClearHistory}
               />
               <HowItWorks />
             </>
@@ -170,14 +333,29 @@ export default function App() {
                 onReset={handleReset}
                 onExportSuccess={() => setHasExported(true)}
               />
-
-              {hasExported && (
-                <DonationSupport onDismiss={() => setHasExported(false)} />
-              )}
+              {hasExported && <DonationSupport onDismiss={() => setHasExported(false)} />}
             </>
           )}
         </main>
       </div>
+
+      {countdown !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#062F34]/90 px-4 backdrop-blur-sm" role="status" aria-live="assertive">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <span className="countdown-spark absolute left-[14%] top-[20%] text-5xl sm:text-7xl">🔥</span>
+            <span className="countdown-spark absolute right-[14%] top-[22%] text-5xl sm:text-7xl">😱</span>
+            <span className="countdown-spark absolute bottom-[19%] left-[20%] text-4xl sm:text-6xl">😳</span>
+            <span className="countdown-spark absolute bottom-[17%] right-[20%] text-4xl sm:text-6xl">🔥</span>
+          </div>
+          <div className="relative text-center">
+            <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-[#E9F056]">Ready. Set.</p>
+            <p key={String(countdown)} className="countdown-number font-display text-8xl font-black leading-none text-white sm:text-9xl">
+              {countdown}
+            </p>
+            <p className="mt-4 text-sm uppercase tracking-[0.2em] text-white/65">Roast incoming</p>
+          </div>
+        </div>
+      )}
 
       <Footer onShowHowItWorks={handleShowHowItWorks} />
     </div>

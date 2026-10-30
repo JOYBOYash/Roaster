@@ -4,12 +4,12 @@ const steps = [
   {
     num: '01',
     title: 'Drop a URL',
-    desc: 'Enter a public website URL, paste page copy, or list your tracks.',
+    desc: 'Enter a public website URL or connect Spotify for your top tracks or saved songs.',
   },
   {
     num: '02',
     title: 'Get roasted',
-    desc: 'Get a short roast based on the website copy or music list you provide.',
+    desc: 'Get a sarcastic roast grounded in the content you chose.',
   },
   {
     num: '03',
