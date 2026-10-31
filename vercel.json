@@ -5,7 +5,17 @@
       "maxDuration": 30
     },
     "api/health.ts": {
-      "maxDuration": 5
+      "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

@@ -1,43 +1,32 @@
-import { handleRoastRequest } from '../src/server/roastHandler';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { handleRoastRequest } from './_roastHandler';
 
-interface ApiRequest {
-  method?: string;
-  body?: unknown;
-}
-
-interface ApiResponse {
-  status(code: number): ApiResponse;
-  setHeader(name: string, value: string): ApiResponse;
-  json(body: unknown): ApiResponse;
-}
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '2mb',
-    },
-  },
-};
-
-function getErrorName(error: unknown): string {
-  if (error && typeof error === 'object' && 'name' in error && typeof error.name === 'string') {
-    return error.name.slice(0, 80);
-  }
-  return 'UnknownError';
-}
-
-export default async function handler(req: ApiRequest, res: ApiResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requestId = `roast-${Date.now().toString(36)}`;
   let stage = 'method-check';
 
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('X-Roastie-Request-Id', requestId);
+  // Defensive header setting
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Roastie-Request-Id', requestId);
+  }
+
+  const sendJson = (status: number, data: unknown) => {
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(status).json(data);
+    }
+    // Fallback for raw Node ServerResponse if Vercel helpers are bypassed
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+  };
 
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Allow', 'POST');
+    }
+    return sendJson(405, {
       success: false,
-      error: 'Method not allowed.',
+      error: 'Method not allowed. Use POST.',
       requestId,
       code: 'METHOD_NOT_ALLOWED',
       stage,
@@ -50,7 +39,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     try {
       body = JSON.parse(body);
     } catch {
-      return res.status(400).json({
+      return sendJson(400, {
         success: false,
         error: 'Request body must contain valid JSON.',
         requestId,
@@ -61,7 +50,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return res.status(400).json({
+    return sendJson(400, {
       success: false,
       error: 'Request body must be a JSON object.',
       requestId,
@@ -71,32 +60,21 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    // Keep this as a static relative import. Vercel's bundler follows it
-    // and includes the TypeScript handler in the serverless function.
-    stage = 'shared-handler-execution';
+    stage = 'handler-execution';
     const result = await handleRoastRequest(body);
-
-    if (result.status >= 500) {
-      return res.status(result.status).json({
-        ...result.body,
-        requestId,
-        code: 'ROAST_HANDLER_FAILURE',
-        stage,
-      });
-    }
-
-    return res.status(result.status).json({
+    return sendJson(result.status, {
       ...result.body,
       requestId,
       stage: 'completed',
     });
-  } catch (error) {
-    const errorName = getErrorName(error);
+  } catch (error: any) {
+    const errorName = error?.name || 'UnknownError';
+    const errorMessage = error?.message || 'Server error';
     console.error(`[api/roast] requestId=${requestId} stage=${stage} errorName=${errorName}`, error);
 
-    return res.status(500).json({
+    return sendJson(500, {
       success: false,
-      error: 'The roast API failed before it could complete. Use the reference ID and stage when checking Vercel logs.',
+      error: `Roast generation failed: ${errorMessage}`,
       requestId,
       code: 'ROAST_API_INVOCATION_FAILURE',
       stage,
