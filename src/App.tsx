@@ -144,7 +144,7 @@ export default function App() {
             const errorPayload = await response.json();
             const baseMessage = typeof errorPayload?.error === 'string'
               ? errorPayload.error
-              : await diagnoseApiFailure(response.status, '/api/roast');
+              : await diagnoseApiFailure(response.status, '/api/roast', response.headers);
             const reference = typeof errorPayload?.requestId === 'string'
               ? ` Reference: ${errorPayload.requestId}`
               : '';
@@ -159,14 +159,14 @@ export default function App() {
             message = await diagnoseApiFailure(response.status, '/api/roast', response.headers);
           }
         } else {
-          message = await diagnoseApiFailure(response.status, '/api/roast');
+          message = await diagnoseApiFailure(response.status, '/api/roast', response.headers);
         }
         setErrorMessage(message);
         return;
       }
 
       if (!contentType.includes('application/json')) {
-        setErrorMessage(await diagnoseApiFailure(response.status, '/api/roast'));
+        setErrorMessage(await diagnoseApiFailure(response.status, '/api/roast', response.headers));
         return;
       }
 
