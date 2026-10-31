@@ -1,5 +1,3 @@
-import { GoogleGenAI, Type } from '@google/genai';
-
 interface RoastRequestBody {
   url?: unknown;
   pastedText?: unknown;
@@ -281,6 +279,9 @@ Source text:
 ${extractedText}`;
 
     try {
+      // Load the Gemini SDK inside the guarded generation block. A module/init failure
+      // becomes a structured API response instead of crashing the Vercel function.
+      const { GoogleGenAI, Type } = await import('@google/genai');
       const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
       const generation = ai.models.generateContent({
         model: 'gemini-3.8-flash',

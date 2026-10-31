@@ -18,6 +18,7 @@ export default function handler(req: ApiRequest, res: ApiResponse) {
   return res.status(200).json({
     ok: true,
     service: 'roastie-api',
+    apiVersion: 'roast-v2',
     aiConfigured: Boolean(key && key !== 'MY_GEMINI_API_KEY'),
     timestamp: new Date().toISOString(),
   });
