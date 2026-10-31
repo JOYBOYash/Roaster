@@ -1,3 +1,5 @@
+import { handleRoastRequest } from '../src/server/roastHandler';
+
 interface ApiRequest {
   method?: string;
   body?: unknown;
@@ -69,13 +71,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    stage = 'shared-handler-import';
-    const { handleRoastRequest } = await import('../src/server/roastHandler');
-
-    if (typeof handleRoastRequest !== 'function') {
-      throw new Error('The shared roast handler export is missing');
-    }
-
+    // Keep this as a static relative import. Vercel's bundler follows it
+    // and includes the TypeScript handler in the serverless function.
     stage = 'shared-handler-execution';
     const result = await handleRoastRequest(body);
 
