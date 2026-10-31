@@ -27,7 +27,11 @@ import {
 type ApiHealth = {
   ok?: boolean;
   service?: string;
+  apiVersion?: string;
   aiConfigured?: boolean;
+  checks?: Record<string, { ok?: boolean; error?: string }>;
+  runtime?: string;
+  deploymentCommit?: string | null;
 };
 
 type RoastSubmitInput = {
@@ -40,8 +44,14 @@ type RoastSubmitInput = {
   sourceLabel?: string;
 };
 
-async function diagnoseApiFailure(status: number | null, route: string): Promise<string> {
+async function diagnoseApiFailure(status: number | null, route: string, headers?: Headers): Promise<string> {
   const statusSuffix = status === null ? '' : ` (HTTP ${status})`;
+  const vercelCode = headers?.get('x-vercel-error');
+  const vercelRequestId = headers?.get('x-vercel-id');
+  const platformDetails = [
+    vercelCode ? `Vercel: ${vercelCode}.` : '',
+    vercelRequestId ? `Vercel request: ${vercelRequestId}.` : '',
+  ].filter(Boolean).join(' ');
 
   if (status === 504) {
     return 'The request timed out before Roastie finished. No roast was generated. Check /api/health and the server logs.';
@@ -52,12 +62,21 @@ async function diagnoseApiFailure(status: number | null, route: string): Promise
     const contentType = healthResponse.headers.get('content-type') || '';
 
     if (!healthResponse.ok || !contentType.includes('application/json')) {
-      return `Could not confirm that the Roastie API is running${statusSuffix}. Open /api/health on this site and check the deployment logs.`;
+      return `Could not confirm that the Roastie API is running${statusSuffix}. ${platformDetails}Open /api/health on this site and check the deployment logs.`;
     }
 
     const health: ApiHealth = await healthResponse.json();
     if (!health.ok) {
-      return `The Roastie API health check failed${statusSuffix}. Check the server logs.`;
+      const checks = health.checks as Record<string, { ok?: boolean; error?: string }> | undefined;
+      const failedChecks = checks
+        ? Object.entries(checks)
+            .filter(([, check]) => check && check.ok === false)
+            .map(([name, check]) => `${name}: ${check.error || 'failed'}`)
+        : [];
+      const diagnostic = failedChecks.length
+        ? ` Failed checks: ${failedChecks.join('; ')}.`
+        : '';
+      return `The Roastie API health check failed${statusSuffix}.${diagnostic} ${platformDetails}Check the deployment logs.`;
     }
 
     if (health.aiConfigured === false) {
@@ -68,9 +87,9 @@ async function diagnoseApiFailure(status: number | null, route: string): Promise
       return `The API health check passed, but the ${route} request could not complete. Check the host’s proxy and server logs.`;
     }
 
-    return `The Roastie API is reachable, but ${route} returned a non-JSON response${statusSuffix}. Check API routing and server logs.`;
+    return `The Roastie API is reachable, but ${route} returned a non-JSON response${statusSuffix}. ${platformDetails}Check API routing and server logs.`;
   } catch {
-    return `Could not reach the Roastie API${statusSuffix}. Check /api/health and confirm the Express server is running on the host.`;
+    return `Could not reach the Roastie API${statusSuffix}. ${platformDetails}Check /api/health and confirm the API function is deployed.`;
   }
 }
 
@@ -127,21 +146,31 @@ export default function App() {
         if (contentType.includes('application/json')) {
           try {
             const errorPayload = await response.json();
-            message = typeof errorPayload?.error === 'string'
+            const baseMessage = typeof errorPayload?.error === 'string'
               ? errorPayload.error
-              : await diagnoseApiFailure(response.status, '/api/roast');
+              : await diagnoseApiFailure(response.status, '/api/roast', response.headers);
+            const reference = typeof errorPayload?.requestId === 'string'
+              ? ` Reference: ${errorPayload.requestId}`
+              : '';
+            const stage = typeof errorPayload?.stage === 'string'
+              ? ` Stage: ${errorPayload.stage}.`
+              : '';
+            const code = typeof errorPayload?.code === 'string'
+              ? ` Code: ${errorPayload.code}.`
+              : '';
+            message = `${baseMessage}${stage}${code}${reference}`;
           } catch {
-            message = await diagnoseApiFailure(response.status, '/api/roast');
+            message = await diagnoseApiFailure(response.status, '/api/roast', response.headers);
           }
         } else {
-          message = await diagnoseApiFailure(response.status, '/api/roast');
+          message = await diagnoseApiFailure(response.status, '/api/roast', response.headers);
         }
         setErrorMessage(message);
         return;
       }
 
       if (!contentType.includes('application/json')) {
-        setErrorMessage(await diagnoseApiFailure(response.status, '/api/roast'));
+        setErrorMessage(await diagnoseApiFailure(response.status, '/api/roast', response.headers));
         return;
       }
 
