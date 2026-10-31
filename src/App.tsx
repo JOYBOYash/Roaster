@@ -127,9 +127,19 @@ export default function App() {
         if (contentType.includes('application/json')) {
           try {
             const errorPayload = await response.json();
-            message = typeof errorPayload?.error === 'string'
+            const baseMessage = typeof errorPayload?.error === 'string'
               ? errorPayload.error
               : await diagnoseApiFailure(response.status, '/api/roast');
+            const reference = typeof errorPayload?.requestId === 'string'
+              ? ` Reference: ${errorPayload.requestId}`
+              : '';
+            const stage = typeof errorPayload?.stage === 'string'
+              ? ` Stage: ${errorPayload.stage}.`
+              : '';
+            const code = typeof errorPayload?.code === 'string'
+              ? ` Code: ${errorPayload.code}.`
+              : '';
+            message = `${baseMessage}${stage}${code}${reference}`;
           } catch {
             message = await diagnoseApiFailure(response.status, '/api/roast');
           }
