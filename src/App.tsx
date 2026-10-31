@@ -27,7 +27,11 @@ import {
 type ApiHealth = {
   ok?: boolean;
   service?: string;
+  apiVersion?: string;
   aiConfigured?: boolean;
+  checks?: Record<string, { ok?: boolean; error?: string }>;
+  runtime?: string;
+  deploymentCommit?: string | null;
 };
 
 type RoastSubmitInput = {
