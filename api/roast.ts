@@ -17,10 +17,19 @@ export const config = {
   },
 };
 
+function getErrorName(error: unknown): string {
+  if (error && typeof error === 'object' && 'name' in error && typeof error.name === 'string') {
+    return error.name.slice(0, 80);
+  }
+  return 'UnknownError';
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   const requestId = `roast-${Date.now().toString(36)}`;
+  let stage = 'method-check';
 
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Roastie-Request-Id', requestId);
 
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -28,9 +37,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       success: false,
       error: 'Method not allowed.',
       requestId,
+      code: 'METHOD_NOT_ALLOWED',
+      stage,
     });
   }
 
+  stage = 'body-validation';
   let body: unknown = req.body;
   if (typeof body === 'string') {
     try {
@@ -40,6 +52,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         success: false,
         error: 'Request body must contain valid JSON.',
         requestId,
+        code: 'INVALID_JSON',
+        stage,
       });
     }
   }
@@ -49,25 +63,47 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       success: false,
       error: 'Request body must be a JSON object.',
       requestId,
+      code: 'INVALID_BODY',
+      stage,
     });
   }
 
   try {
-    // Dynamic import is intentional: if server module initialization fails,
-    // return a JSON diagnostic instead of Vercel's generic HTML 500 page.
+    stage = 'shared-handler-import';
     const { handleRoastRequest } = await import('../src/server/roastHandler');
+
+    if (typeof handleRoastRequest !== 'function') {
+      throw new Error('The shared roast handler export is missing');
+    }
+
+    stage = 'shared-handler-execution';
     const result = await handleRoastRequest(body);
+
+    if (result.status >= 500) {
+      return res.status(result.status).json({
+        ...result.body,
+        requestId,
+        code: 'ROAST_HANDLER_FAILURE',
+        stage,
+      });
+    }
+
     return res.status(result.status).json({
       ...result.body,
       requestId,
+      stage: 'completed',
     });
   } catch (error) {
-    console.error(`[api/roast] ${requestId} invocation failed:`, error);
+    const errorName = getErrorName(error);
+    console.error(`[api/roast] requestId=${requestId} stage=${stage} errorName=${errorName}`, error);
 
     return res.status(500).json({
       success: false,
-      error: 'The roast service failed to start. Check the Vercel Function logs for this request ID.',
+      error: 'The roast API failed before it could complete. Use the reference ID and stage when checking Vercel logs.',
       requestId,
+      code: 'ROAST_API_INVOCATION_FAILURE',
+      stage,
+      errorName,
     });
   }
 }
