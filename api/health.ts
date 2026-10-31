@@ -1,3 +1,5 @@
+import { handleRoastRequest } from '../src/server/roastHandler';
+
 interface ApiRequest {
   method?: string;
 }
@@ -36,17 +38,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     geminiKeyConfigured: { ok: geminiKeyConfigured },
   };
 
-  try {
-    const handlerModule = await import('../src/server/roastHandler');
-    checks.sharedHandler = {
-      ok: typeof handlerModule.handleRoastRequest === 'function',
-      ...(typeof handlerModule.handleRoastRequest === 'function'
-        ? {}
-        : { error: 'handleRoastRequest export not found' }),
-    };
-  } catch (error) {
-    checks.sharedHandler = { ok: false, error: errorSummary(error) };
-  }
+  // Static import ensures Vercel bundles the shared TypeScript handler
+  // into this function instead of trying to resolve a source path at runtime.
+  checks.sharedHandler = {
+    ok: typeof handleRoastRequest === 'function',
+    ...(typeof handleRoastRequest === 'function'
+      ? {}
+      : { error: 'handleRoastRequest export not found' }),
+  };
 
   try {
     const sdk = await import('@google/genai');
