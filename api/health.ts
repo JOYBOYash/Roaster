@@ -1,3 +1,4 @@
+import { handleRoastRequest } from './_roastHandler';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 type DiagnosticCheck = {
@@ -41,21 +42,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
   };
 
-  // Check co-located roast handler
-  try {
-    const handlerModule = await import('./_roastHandler');
-    checks.sharedHandler = {
-      ok: typeof handlerModule.handleRoastRequest === 'function',
-      ...(typeof handlerModule.handleRoastRequest === 'function'
-        ? {}
-        : { error: 'handleRoastRequest export not found in _roastHandler' }),
-    };
-  } catch (err: any) {
-    checks.sharedHandler = {
-      ok: false,
-      error: `Failed to load _roastHandler: ${err?.message || 'Unknown error'}`,
-    };
-  }
+  // Static import is required here. Vercel traces static imports into the
+  // function bundle; a runtime dynamic import('./_roastHandler') is left as
+  // an extensionless Node ESM path and fails at /var/task/api/_roastHandler.
+  checks.sharedHandler = {
+    ok: typeof handleRoastRequest === 'function',
+    ...(typeof handleRoastRequest === 'function'
+      ? {}
+      : { error: 'handleRoastRequest export not found in _roastHandler' }),
+  };
 
   // Check @google/genai SDK
   try {
@@ -97,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   return sendJson(200, {
     ok: allReady,
     service: 'roastie-api',
-    apiVersion: 'roast-v3-vercel-resilient',
+    apiVersion: 'roast-v4-static-helper',
     runtime: process.version,
     aiConfigured: geminiKeyConfigured,
     deploymentCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || null,
