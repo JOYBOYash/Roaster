@@ -4,6 +4,10 @@ import ROAST_PRESETS from '../data/roastPresets.json';
 import { hasSpotifyScope, SpotifyMusicSource } from '../lib/spotify';
 
 interface HeroProps {
+  roastMode: 'website' | 'music';
+  onRoastModeChange: (mode: 'website' | 'music') => void;
+  initialSpotifySource?: SpotifyMusicSource;
+  initialRoastStyleId?: string;
   onRoastSubmit: (input: {
     url?: string;
     pastedText?: string;
@@ -20,6 +24,10 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({
+  roastMode,
+  onRoastModeChange,
+  initialSpotifySource,
+  initialRoastStyleId,
   onRoastSubmit,
   onSpotifyAction,
   onDisconnectSpotify,
@@ -30,12 +38,11 @@ export const Hero: React.FC<HeroProps> = ({
   onHowItWorksClick,
   onClearError,
 }) => {
-  const [roastMode, setRoastMode] = useState<'website' | 'music'>('website');
   const [urlInput, setUrlInput] = useState('');
   const [pastedText, setPastedText] = useState('');
   const [usePastedMode, setUsePastedMode] = useState(false);
-  const [spotifySource, setSpotifySource] = useState<SpotifyMusicSource>('top');
-  const [roastStyleId, setRoastStyleId] = useState('roast-master');
+  const [spotifySource, setSpotifySource] = useState<SpotifyMusicSource>(initialSpotifySource ?? 'top');
+  const [roastStyleId, setRoastStyleId] = useState(initialRoastStyleId ?? 'roast-master');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,7 +96,7 @@ export const Hero: React.FC<HeroProps> = ({
   };
 
   const switchRoastMode = (mode: 'website' | 'music') => {
-    setRoastMode(mode);
+    onRoastModeChange(mode);
     setUsePastedMode(false);
     setValidationError(null);
     onClearError();
@@ -162,7 +169,7 @@ export const Hero: React.FC<HeroProps> = ({
               )}
             </div>
           ) : !usePastedMode ? (
-            <div className="group mx-auto w-full max-w-[400px] sm:mx-0">
+            <div className="group mx-auto w-full max-w-[400px]">
               <label htmlFor="target-website-url" className="sr-only">Website URL</label>
               <div className="relative border border-[#FF5C34]/75 bg-[#103E43] transition-colors duration-200 hover:border-[#FF8A70] focus-within:border-[#E9F056] focus-within:ring-2 focus-within:ring-[#E9F056]/20">
                 <Globe className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#FF8A70] transition-colors group-focus-within:text-[#E9F056]" aria-hidden="true" />
@@ -202,19 +209,42 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-3 border-t border-white/15 pt-4">
-            <label htmlFor="roast-style" className="shrink-0 text-sm text-white/70">Style</label>
-            <select
-              id="roast-style"
-              value={roastStyleId}
-              onChange={(e) => setRoastStyleId(e.target.value)}
-              disabled={isLoading}
-              className="min-w-0 flex-1 border border-white/20 bg-[#103E43] px-3 py-2.5 text-sm text-white focus:border-[#E9F056] focus:outline-none focus:ring-1 focus:ring-[#E9F056]/25 disabled:opacity-60"
-            >
-              {ROAST_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>{preset.label}</option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-white/15 pt-4">
+            <div className="flex shrink-0 items-center gap-3">
+              <label htmlFor="roast-style" className="text-sm text-white/70">Style</label>
+              <select
+                id="roast-style"
+                value={roastStyleId}
+                onChange={(e) => setRoastStyleId(e.target.value)}
+                disabled={isLoading}
+                className="w-[185px] max-w-[58vw] border border-white/20 bg-[#103E43] px-3 py-2.5 text-sm text-white focus:border-[#E9F056] focus:outline-none focus:ring-1 focus:ring-[#E9F056]/25 disabled:opacity-60"
+              >
+                {ROAST_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/75">
+              {roastMode === 'website' && (
+                <button
+                  type="button"
+                  onClick={switchInputMode}
+                  disabled={isLoading}
+                  className="inline-flex cursor-pointer items-center gap-2 transition-colors hover:text-[#E9F056] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  {usePastedMode ? 'Use a URL instead' : 'Paste page copy'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onHowItWorksClick}
+                className="cursor-pointer underline underline-offset-4 transition-colors hover:text-[#E9F056]"
+              >
+                How it works
+              </button>
+            </div>
           </div>
 
           {(validationError || errorMessage) && (
@@ -263,15 +293,6 @@ export const Hero: React.FC<HeroProps> = ({
           </button>
         </form>
 
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-white/15 pt-4 text-sm text-white/75">
-          {roastMode === 'website' && <button type="button" onClick={switchInputMode} className="inline-flex cursor-pointer items-center gap-2 transition-colors hover:text-[#E9F056]">
-            <FileText className="h-4 w-4" aria-hidden="true" />
-            {usePastedMode ? 'Use a URL instead' : 'Paste page copy'}
-          </button>}
-          <button type="button" onClick={onHowItWorksClick} className="cursor-pointer underline underline-offset-4 transition-colors hover:text-[#E9F056]">
-            How it works
-          </button>
-        </div>
       </div>
     </section>
   );
