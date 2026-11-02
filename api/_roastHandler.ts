@@ -17,6 +17,9 @@ interface RoastResponseBody {
   };
   error?: string;
   canPasteFallback?: boolean;
+  code?: string;
+  upstreamStatus?: number;
+  retryable?: boolean;
 }
 
 export interface RoastHandlerResult {
@@ -169,6 +172,137 @@ async function fetchAndExtractWebsiteContent(targetUrl: string): Promise<{ title
     throw new Error(error instanceof Error ? error.message : 'Failed to retrieve website content');
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+interface GeminiFailure {
+  httpStatus: number;
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+function readGeminiStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const candidate = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    code?: unknown;
+    response?: { status?: unknown };
+  };
+
+  for (const value of [candidate.status, candidate.statusCode, candidate.response?.status]) {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 400 && value <= 599) {
+      return value;
+    }
+  }
+
+  if (typeof candidate.code === 'number' && Number.isInteger(candidate.code) && candidate.code >= 400 && candidate.code <= 599) {
+    return candidate.code;
+  }
+
+  return undefined;
+}
+
+function readGeminiMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return 'Gemini request failed without a readable error message.';
+}
+
+function redactProviderMessage(value: string): string {
+  return value
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[REDACTED_API_KEY]')
+    .replace(/(api[_-]?key|authorization|bearer)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/https?:\/\/[^\s]+/g, '[UPSTREAM_URL]')
+    .slice(0, 280);
+}
+
+function classifyGeminiFailure(error: unknown): GeminiFailure {
+  const message = readGeminiMessage(error);
+  const normalized = message.toLowerCase();
+  let status = readGeminiStatus(error);
+
+  if (normalized.includes('api_key_invalid') || normalized.includes('api key not valid')) {
+    status = 401;
+  } else if (
+    normalized.includes('generation timed out') ||
+    normalized.includes('deadline_exceeded') ||
+    normalized.includes('timed out')
+  ) {
+    status = 504;
+  } else if (!status && (normalized.includes('fetch failed') || normalized.includes('econn') || normalized.includes('network'))) {
+    status = 503;
+  }
+
+  switch (status) {
+    case 400:
+      return {
+        httpStatus: 400,
+        code: 'GEMINI_BAD_REQUEST',
+        message: `Gemini rejected the request (HTTP 400). Check the model request/configuration in the Vercel function logs. Details: ${redactProviderMessage(message)}`,
+        retryable: false,
+      };
+    case 401:
+      return {
+        httpStatus: 401,
+        code: 'GEMINI_API_KEY_INVALID',
+        message: 'Gemini rejected the API key (HTTP 401). Verify the GEMINI_API_KEY value in Vercel Production environment variables, then redeploy.',
+        retryable: false,
+      };
+    case 402:
+      return {
+        httpStatus: 402,
+        code: 'GEMINI_BILLING_REQUIRED',
+        message: 'Gemini requires available billing/prepaid credits for this project (HTTP 402). Check Google AI Studio billing.',
+        retryable: false,
+      };
+    case 403:
+      return {
+        httpStatus: 403,
+        code: 'GEMINI_PERMISSION_DENIED',
+        message: 'Gemini denied access to this project (HTTP 403). Check the API key restrictions, project access, billing status and Gemini free-tier eligibility in Google AI Studio.',
+        retryable: false,
+      };
+    case 404:
+      return {
+        httpStatus: 404,
+        code: 'GEMINI_MODEL_NOT_FOUND',
+        message: 'Gemini could not find the requested model or resource (HTTP 404). Check the model name and whether it is available to this project.',
+        retryable: false,
+      };
+    case 429:
+      return {
+        httpStatus: 429,
+        code: 'GEMINI_QUOTA_OR_RATE_LIMIT',
+        message: 'Gemini quota or rate limit was reached (HTTP 429). Check AI Studio Usage and Rate Limits, then wait for the quota window to reset.',
+        retryable: true,
+      };
+    case 504:
+      return {
+        httpStatus: 504,
+        code: 'GEMINI_TIMEOUT',
+        message: 'Gemini did not finish generating within Roastie’s 25-second request limit. Try again; if this repeats, reduce prompt size or review Vercel function duration.',
+        retryable: true,
+      };
+    case 500:
+    case 502:
+    case 503:
+      return {
+        httpStatus: 503,
+        code: 'GEMINI_TEMPORARILY_UNAVAILABLE',
+        message: `Gemini is temporarily unavailable (upstream HTTP ${status}). Try again shortly. Details: ${redactProviderMessage(message)}`,
+        retryable: true,
+      };
+    default:
+      return {
+        httpStatus: 502,
+        code: 'GEMINI_UPSTREAM_ERROR',
+        message: `Roastie could not complete the Gemini request. Check the Vercel function logs. Details: ${redactProviderMessage(message)}`,
+        retryable: false,
+      };
   }
 }
 
@@ -332,12 +466,26 @@ ${extractedText}`;
           },
         },
       };
-    } catch (error: any) {
-      console.error('Gemini roast generation failed:', error);
-      const errorMsg = error?.message?.includes('API_KEY_INVALID') || error?.message?.includes('API key not valid')
-        ? 'Invalid GEMINI_API_KEY. Please verify your Gemini API key in Vercel Project Settings > Environment Variables.'
-        : 'Roast generation failed. No roast was created. Please try again.';
-      return { status: 503, body: { success: false, error: errorMsg } };
+    } catch (error: unknown) {
+      const failure = classifyGeminiFailure(error);
+      console.error('[roastie:gemini-failure]', {
+        code: failure.code,
+        upstreamStatus: failure.httpStatus,
+        retryable: failure.retryable,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+        message: redactProviderMessage(readGeminiMessage(error)),
+      });
+
+      return {
+        status: failure.httpStatus,
+        body: {
+          success: false,
+          error: failure.message,
+          code: failure.code,
+          upstreamStatus: failure.httpStatus,
+          retryable: failure.retryable,
+        },
+      };
     }
   } catch (error) {
     console.error('Error in roast handler:', error);
