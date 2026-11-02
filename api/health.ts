@@ -1,4 +1,4 @@
-import { handleRoastRequest } from './_roastHandler';
+import { handleRoastRequest } from './_roastHandler.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 type DiagnosticCheck = {
