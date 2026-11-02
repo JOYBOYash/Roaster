@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleRoastRequest } from './_roastHandler';
+import { handleRoastRequest } from './_roastHandler.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requestId = `roast-${Date.now().toString(36)}`;
