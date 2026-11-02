@@ -167,7 +167,13 @@ export default function App() {
             const code = typeof errorPayload?.code === 'string'
               ? ` Code: ${errorPayload.code}.`
               : '';
-            message = `${baseMessage}${stage}${code}${reference}`;
+            const upstreamStatus = typeof errorPayload?.upstreamStatus === 'number'
+              ? ` Upstream HTTP: ${errorPayload.upstreamStatus}.`
+              : '';
+            const retryHint = errorPayload?.retryable === true
+              ? ' This error may be temporary; retry in a moment.'
+              : '';
+            message = `${baseMessage}${stage}${code}${upstreamStatus}${retryHint}${reference}`;
           } catch {
             message = await diagnoseApiFailure(response.status, '/api/roast', response.headers);
           }
