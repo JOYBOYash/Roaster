@@ -77,6 +77,31 @@ function clearOAuthTransaction(): void {
   Object.values(STORAGE_KEYS).forEach((key) => sessionStorage.removeItem(key));
 }
 
+export interface PendingSpotifySelection {
+  source: SpotifyMusicSource;
+  roastStyleId: string;
+}
+
+/**
+ * Read only the temporary OAuth UI selection on the redirect back from Spotify.
+ * This lets the app restore Music mode before the callback effect starts.
+ */
+export function getPendingSpotifySelection(): PendingSpotifySelection | null {
+  if (typeof window === 'undefined') return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const isSpotifyCallback = params.has('code') || params.has('error');
+  if (!isSpotifyCallback) return null;
+
+  const rawSource = sessionStorage.getItem(STORAGE_KEYS.source);
+  if (rawSource !== 'top' && rawSource !== 'saved') return null;
+
+  return {
+    source: rawSource,
+    roastStyleId: sessionStorage.getItem(STORAGE_KEYS.style) || 'roast-master',
+  };
+}
+
 function cleanOAuthQueryFromUrl(): void {
   const url = new URL(window.location.href);
   url.searchParams.delete('code');

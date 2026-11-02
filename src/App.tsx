@@ -19,6 +19,7 @@ import {
   completeSpotifyCallback,
   disconnectSpotify,
   fetchSpotifyMusic,
+  getPendingSpotifySelection,
   hasSpotifyScope,
   hasSpotifySession,
   SpotifyMusicSource,
@@ -96,6 +97,12 @@ async function diagnoseApiFailure(status: number | null, route: string, headers?
 const pause = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
 export default function App() {
+  // Spotify redirects back with a fresh document load. Restore the selected mode
+  // from the short-lived PKCE transaction before the Hero first renders.
+  const [pendingSpotifySelection] = useState(() => getPendingSpotifySelection());
+  const [roastMode, setRoastMode] = useState<'website' | 'music'>(() =>
+    pendingSpotifySelection ? 'music' : 'website'
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState<number | 'ROAST' | null>(null);
   const [roastData, setRoastData] = useState<RoastResult | null>(null);
@@ -112,6 +119,8 @@ export default function App() {
   }, []);
 
   const handleRoastSubmit = async (input: RoastSubmitInput) => {
+    // Keep Music mode selected throughout the countdown, request and result flow.
+    if (input.mode === 'music') setRoastMode('music');
     setErrorMessage(null);
     setCanPasteFallback(false);
 
@@ -206,6 +215,7 @@ export default function App() {
   };
 
   const handleSpotifyAction = async (source: SpotifyMusicSource, roastStyleId: string) => {
+    setRoastMode('music');
     setErrorMessage(null);
     setCanPasteFallback(false);
 
@@ -253,6 +263,8 @@ export default function App() {
         const authorization = await completeSpotifyCallback();
         if (!authorization || !active) return;
 
+        // Restore the mode before fetching tracks or starting the countdown.
+        setRoastMode('music');
         setSpotifyConnected(true);
         setIsSpotifyFetching(true);
         setIsLoading(true);
@@ -266,7 +278,7 @@ export default function App() {
           musicText: tracks.join('\n'),
           roastStyleId: authorization.roastStyleId,
           sourceItems: tracks,
-          sourceLabel: authorization.source === 'top' ? 'Spotify top 5 tracks' : 'Spotify saved favourites',
+          sourceLabel: authorization.source === 'top' ? 'Spotify top 5 tracks' : 'Spotify saved tracks',
         });
       } catch (error) {
         if (!active) return;
@@ -334,6 +346,10 @@ export default function App() {
           {!roastData ? (
             <>
               <Hero
+                roastMode={roastMode}
+                onRoastModeChange={setRoastMode}
+                initialSpotifySource={pendingSpotifySelection?.source}
+                initialRoastStyleId={pendingSpotifySelection?.roastStyleId}
                 onRoastSubmit={handleRoastSubmit}
                 onSpotifyAction={handleSpotifyAction}
                 onDisconnectSpotify={handleDisconnectSpotify}
