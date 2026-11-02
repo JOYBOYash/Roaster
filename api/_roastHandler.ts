@@ -17,6 +17,9 @@ interface RoastResponseBody {
   };
   error?: string;
   canPasteFallback?: boolean;
+  code?: string;
+  upstreamStatus?: number;
+  retryable?: boolean;
 }
 
 export interface RoastHandlerResult {
